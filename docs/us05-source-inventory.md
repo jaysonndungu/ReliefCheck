@@ -1,5 +1,7 @@
 # US05 initial source inventory
 
+The [draft manifest](../data/drafts/source-manifest.json) has the current source list. This document records the initial shortlist.
+
 Collected and screened on 2026-11-05 for the October 2024 Valencia DANA floods and October 2025 Hurricane Melissa in Jamaica. Owner is Jayson. Anson is the proposed reviewer.
 
 All entries are pending staff approval and ingestion permission checks. This inventory is for team review. Keep it separate from the approved manifest and the searchable corpus. Dates in the table are publisher dates. A dash means no publication date was confirmed.
