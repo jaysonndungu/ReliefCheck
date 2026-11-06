@@ -1,0 +1,13 @@
+{
+  "name": "@reliefcheck/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@reliefcheck/contracts": "0.1.0",
+    "express": "5.3.0"
+  },
+  "scripts": {
+    "build": "tsc"
+  }
+}

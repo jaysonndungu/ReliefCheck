@@ -1,0 +1,30 @@
+{
+  "name": "reliefcheck",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=24.22.2 <25"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "setup": "npm ci && npm run dev",
+    "predev": "npm run build --workspace @reliefcheck/contracts",
+    "dev": "concurrently --kill-others --names contracts,api,web \"npm run watch --workspace @reliefcheck/contracts\" \"node --env-file-if-exists=.env --watch --import tsx apps/api/src/index.ts\" \"npm run dev --workspace @reliefcheck/web\"",
+    "build": "npm run build --workspaces --if-present",
+    "start": "node --env-file-if-exists=.env apps/api/dist/index.js"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.2.1",
+    "concurrently": "10.0.6",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vite": "8.3.6"
+  }
+}
