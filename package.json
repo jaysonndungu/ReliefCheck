@@ -14,11 +14,14 @@
     "predev": "npm run build --workspace @reliefcheck/contracts",
     "dev": "concurrently --kill-others --names contracts,api,web \"npm run watch --workspace @reliefcheck/contracts\" \"node --env-file-if-exists=.env --watch --import tsx apps/api/src/index.ts\" \"npm run dev --workspace @reliefcheck/web\"",
     "build": "npm run build --workspaces --if-present",
-    "start": "node --env-file-if-exists=.env apps/api/dist/index.js"
+    "start": "node --env-file-if-exists=.env apps/api/dist/index.js",
+    "api:test": "npm run build --workspace @reliefcheck/contracts && node --import tsx --test apps/api/test/*.test.ts",
+    "check:bundle": "node scripts/check-bundle-secrets.mjs"
   },
   "devDependencies": {
     "@types/express": "5.0.6",
     "@types/node": "24.19.2",
+    "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.2.1",

@@ -1,61 +1,34 @@
-import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { randomUUID } from 'node:crypto'
-import express from 'express'
-import {
-  API_PREFIX,
-  LIVENESS_PATH,
-  READINESS_PATH,
-  livenessSchema,
-} from '@reliefcheck/contracts'
+import { createApp } from './app.js'
+import { loadConfig } from './config/env.js'
+import { createPool } from './db/pool.js'
+import { createPgReadinessProbe } from './routes/health.js'
+import { createJwtVerifier, createPgStaffRoleRepository } from './middleware/staffAuth.js'
 
-const app = express()
-const api = express.Router()
-const port = Number(process.env.PORT ?? 3000)
-const webRoot = fileURLToPath(new URL('../../web/dist/', import.meta.url))
+const config = loadConfig()
+const pool = config.database ? createPool(config.database) : null
 
-if (!Number.isInteger(port) || port < 1 || port > 65535) {
-  throw new Error('PORT must be an integer from 1 to 65535.')
-}
-
-app.disable('x-powered-by')
-
-api.get(LIVENESS_PATH, (_request, response) => {
-  response.json(livenessSchema.parse({ status: 'ok' }))
+const app = createApp({
+  readiness: pool ? createPgReadinessProbe(pool) : null,
+  staffAuth:
+    pool && config.staffAuth
+      ? { verifyToken: createJwtVerifier(config.staffAuth), roles: createPgStaffRoleRepository(pool) }
+      : null,
+  webDist: fileURLToPath(new URL('../../web/dist/', import.meta.url)),
 })
 
-api.get(READINESS_PATH, (_request, response) => {
-  response.status(503).json({
-    error: {
-      code: 'CORPUS_UNAVAILABLE',
-      message: 'The reviewed corpus is not available in this starter.',
-      retryable: false,
-    },
-    requestId: randomUUID(),
-  })
+if (!config.database) console.log('DATABASE_URL not set: readiness will report DATABASE_UNCONFIGURED.')
+if (!config.staffAuth) console.log('Supabase Auth not configured: staff routes return 503 AUTH_UNCONFIGURED.')
+
+const server = app.listen(config.port, () => {
+  console.log(`ReliefCheck API listening on port ${config.port}`)
 })
 
-api.use((_request, response) => {
-  response.status(404).json({
-    error: { code: 'NOT_FOUND', message: 'API route not found.', retryable: false },
-    requestId: randomUUID(),
-  })
-})
-
-app.use(API_PREFIX, api)
-
-const indexPath = fileURLToPath(new URL('../../web/dist/index.html', import.meta.url))
-if (existsSync(indexPath)) {
-  app.use(express.static(webRoot))
-  app.get('/{*page}', (request, response, next) => {
-    if (request.accepts('html')) {
-      response.sendFile(indexPath)
-      return
-    }
-    next()
+function shutdown() {
+  server.close(() => {
+    if (!pool) process.exit(0)
+    void pool.end().finally(() => process.exit(0))
   })
 }
-
-app.listen(port, () => {
-  console.log(`ReliefCheck API listening on port ${port}`)
-})
+process.on('SIGTERM', shutdown)
+process.on('SIGINT', shutdown)

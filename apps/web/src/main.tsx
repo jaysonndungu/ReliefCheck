@@ -1,40 +1,65 @@
-import { useEffect, useState } from 'react'
+import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { API_PREFIX, LIVENESS_PATH, livenessSchema } from '@reliefcheck/contracts'
+import { BrowserRouter, Route, Routes } from 'react-router'
+import { Layout } from './components/Layout'
+import { PlaceholderPage } from './pages/PlaceholderPage'
+import { NotFoundPage } from './pages/NotFoundPage'
 import './styles.css'
 
 function App() {
-  const [status, setStatus] = useState('Checking API connection...')
-
-  useEffect(() => {
-    const controller = new AbortController()
-
-    async function checkApi() {
-      try {
-        const response = await fetch(`${API_PREFIX}${LIVENESS_PATH}`, {
-          signal: controller.signal,
-        })
-        if (!response.ok) throw new Error('Health check failed')
-        livenessSchema.parse(await response.json())
-        setStatus('API connected')
-      } catch {
-        if (!controller.signal.aborted) {
-          setStatus('API unavailable. Check your terminal and reload this page.')
-        }
-      }
-    }
-
-    void checkApi()
-    return () => controller.abort()
-  }, [])
-
   return (
-    <main>
-      <h1>ReliefCheck</h1>
-      <p>Development starter for the disaster relief evidence app.</p>
-      <p role="status">{status}</p>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route
+            index
+            element={
+              <PlaceholderPage
+                title="Ask ReliefCheck"
+                summary="Ask questions about documented relief channels and published warnings for the Valencia DANA floods and Hurricane Melissa."
+                story="US02–US04"
+              />
+            }
+          />
+          <Route
+            path="appeal"
+            element={
+              <PlaceholderPage
+                title="Check an Appeal"
+                summary="Compare a donation link or appeal message against reviewed official channels and published warnings."
+                story="US13"
+              />
+            }
+          />
+          <Route
+            path="compare"
+            element={
+              <PlaceholderPage
+                title="Compare Channels"
+                summary="Compare reviewed relief channels side by side by the needs they document."
+                story="US14"
+              />
+            }
+          />
+          <Route
+            path="about"
+            element={
+              <PlaceholderPage
+                title="About the Evidence"
+                summary="How sources are reviewed, what the evidence statuses mean, and what ReliefCheck cannot tell you."
+                story="a later story"
+              />
+            }
+          />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   )
 }
 
-createRoot(document.getElementById('root')!).render(<App />)
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)

@@ -23,6 +23,19 @@ If port 5173 is occupied, free it and rerun setup. If port 3000 is occupied, cop
 | `packages/contracts` | Shared Zod schemas and API paths |
 | [ai.md](ai.md) | Story ownership, architecture, evidence rules and release checklist |
 
-Run `npm run build` to type-check and build all three workspaces before opening a PR. To verify the production layout, stop the dev servers, run `npm run build` then `npm start`, and open [localhost:3000](http://localhost:3000). Both modes expose `GET /api/v1/health/live`. The separate `GET /api/v1/health/ready` returns 503 until database and reviewed corpus readiness are implemented.
+Run `npm run build` to type-check and build all three workspaces before opening a PR. To verify the production layout, stop the dev servers, run `npm run build` then `npm start`, and open [localhost:3000](http://localhost:3000). Both modes expose `GET /api/v1/health/live`.
 
-Hosted setup, database migrations, staff accounts, and Gemini provider verification are follow-on work described in the design. The local starter does not access external providers or serve sample evidence.
+## Hosted access (US01)
+
+| Endpoint | Behavior |
+| --- | --- |
+| `GET /api/v1/health/live` | `200` while the process runs |
+| `GET /api/v1/health/ready` | `200` only when the database answers and a reviewed release is active. Otherwise `503` with `DATABASE_UNCONFIGURED`, `DATABASE_UNAVAILABLE` or `CORPUS_UNAVAILABLE` |
+| `GET /api/v1/admin/me` | Protected test endpoint. Needs a Supabase staff JWT and an enabled `relief.staff_roles` row: `401` without a valid token, `403` without a role, `503` when auth isn't configured |
+
+```sh
+npm run api:test      # API tests (node:test)
+npm run check:bundle  # fails if a secret reaches apps/web/dist (run after build)
+```
+
+Deployment uses `render.yaml`, one free Render web service. [docs/runbook.md](docs/runbook.md) covers Supabase setup, the migration in `db/migrations/`, staff accounts and post-deploy checks. Gemini provider verification is follow-on work described in the design. The local starter doesn't access external providers or serve sample evidence.
