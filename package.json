@@ -14,7 +14,12 @@
     "predev": "npm run build --workspace @reliefcheck/contracts",
     "dev": "concurrently --kill-others --names contracts,api,web \"npm run watch --workspace @reliefcheck/contracts\" \"node --env-file-if-exists=.env --watch --import tsx apps/api/src/index.ts\" \"npm run dev --workspace @reliefcheck/web\"",
     "build": "npm run build --workspaces --if-present",
-    "start": "node --env-file-if-exists=.env apps/api/dist/index.js"
+    "start": "node --env-file-if-exists=.env apps/api/dist/index.js",
+    "dataset:validate": "node --import tsx apps/api/src/services/ingestion/cli.ts validate",
+    "dataset:upsert": "node --import tsx apps/api/src/services/ingestion/cli.ts upsert",
+    "dataset:preprocess": "node --import tsx apps/api/src/services/ingestion/cli.ts preprocess",
+    "dataset:test": "node --import tsx --test apps/api/test/*.test.ts",
+    "dataset:typecheck": "tsc --project apps/api/tsconfig.dataset-tests.json --noEmit"
   },
   "devDependencies": {
     "@types/express": "5.0.6",

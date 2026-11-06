@@ -1,0 +1,35 @@
+{
+  "source": {
+    "id": "SYNTH-01",
+    "title": "Synthetic exercise",
+    "reference": {
+      "kind": "file",
+      "path": "synthetic/exercise.txt"
+    },
+    "publisher": null,
+    "disaster": "valencia-dana",
+    "sourceType": "background",
+    "language": "es",
+    "publicationDate": null,
+    "reviewStatus": "pending",
+    "reviewedBy": null,
+    "reviewedAt": null,
+    "notes": "Fictional text for local preprocessing only."
+  },
+  "document": {
+    "sourceId": "SYNTH-01",
+    "contentHash": "d43783045345b8f634ce9ff7ee71bab03007598b41daff8b22cf8bce9a4731f7",
+    "title": "Synthetic exercise",
+    "language": "es",
+    "publicationDate": null,
+    "retrievedAt": "2026-01-01T00:00:00Z",
+    "blocks": [
+      {
+        "text": "Saltar al contenido\n\nEl 5 de enero de 2026, el equipo ficticio publicó un aviso.\nNo envíe dinero a https://example.invalid/donaciones.",
+        "page": 1,
+        "heading": "Aviso de prueba"
+      }
+    ],
+    "warnings": []
+  }
+}

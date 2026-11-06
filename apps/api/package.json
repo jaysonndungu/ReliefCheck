@@ -5,7 +5,8 @@
   "type": "module",
   "dependencies": {
     "@reliefcheck/contracts": "0.1.0",
-    "express": "5.3.0"
+    "express": "5.3.0",
+    "zod": "4.6.7"
   },
   "scripts": {
     "build": "tsc"

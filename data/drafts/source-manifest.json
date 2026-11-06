@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "id": "VAL-01",
+      "title": "Graves inundaciones en España",
+      "reference": {
+        "kind": "web",
+        "url": "https://www.caritas.es/emergencias/graves-inundaciones/"
+      },
+      "publisher": "Cáritas Española",
+      "disaster": "valencia-dana",
+      "sourceType": "campaign",
+      "language": "es",
+      "publicationDate": null,
+      "reviewStatus": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "The campaign has a donation link. Under “Nuestra acción en el terreno,” the Valencia section documents direct aid to families, housing rehabilitation, and support for schools. The campaign also covers areas outside Valencia. Confirm the final donation destination and whether gifts can be earmarked for Valencia."
+    },
+    {
+      "id": "VAL-02",
+      "title": "Ayuda afectados inundaciones DANA",
+      "reference": {
+        "kind": "web",
+        "url": "https://cercadeti.cruzroja.es/ayudaafectadosinundacionesdana"
+      },
+      "publisher": "Cruz Roja Española",
+      "disaster": "valencia-dana",
+      "sourceType": "campaign",
+      "language": "es",
+      "publicationDate": null,
+      "reviewStatus": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "The URL returned a page with unresolved template fields. Check the rendered page and find a link to it from an official Cruz Roja publication before treating it as campaign evidence. Use VAL-05 for recovery context."
+    },
+    {
+      "id": "VAL-03",
+      "title": "Spain’s government announces a block of a suspected fraudulent site",
+      "reference": {
+        "kind": "web",
+        "url": "https://www.lamoncloa.gob.es/serviciosdeprensa/notasprensa/transformacion-digital-y-funcion-publica/Paginas/2024/081124-bloquea-web-ayuda-valencia-dana-por-fraude.aspx?mode=Light"
+      },
+      "publisher": "La Moncloa",
+      "disaster": "valencia-dana",
+      "sourceType": "warning",
+      "language": "es",
+      "publicationDate": "2024-11-08",
+      "reviewStatus": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "The announcement describes blocking `ayudavalencia.es` following a report of fraudulent donation requests. This is historical evidence about the exact named host and the action announced on that date."
+    },
+    {
+      "id": "VAL-04",
+      "title": "Donation scam roundup",
+      "reference": {
+        "kind": "web",
+        "url": "https://maldita.es/timo/20241114/estafa-timo-dana-donacion-victimas/"
+      },
+      "publisher": "Maldita.es",
+      "disaster": "valencia-dana",
+      "sourceType": "warning",
+      "language": "es",
+      "publicationDate": "2024-11-14",
+      "reviewStatus": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Sections on fake volunteers, donation calls, and fraudulent sites document impersonation methods. Use VAL-03 as primary evidence for the government action."
+    },
+    {
+      "id": "VAL-05",
+      "title": "DANA: dos años acompañando en la recuperación",
+      "reference": {
+        "kind": "web",
+        "url": "https://www2.cruzroja.es/web/ahora/dana-dos-acompa%C3%B1ando-recuperacion"
+      },
+      "publisher": "Cruz Roja Española",
+      "disaster": "valencia-dana",
+      "sourceType": "background",
+      "language": "es",
+      "publicationDate": null,
+      "reviewStatus": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "The housing rehabilitation and business recovery sections describe work in affected Valencia communities. The page supports claims about that work. Current campaign availability requires separate evidence."
+    },
+    {
+      "id": "JAM-01",
+      "title": "Support Jamaica FAQs",
+      "reference": {
+        "kind": "web",
+        "url": "https://www.supportjamaica.gov.jm/faqs"
+      },
+      "publisher": "Government of Jamaica",
+      "disaster": "hurricane-melissa",
+      "sourceType": "campaign",
+      "language": "en",
+      "publicationDate": null,
+      "reviewStatus": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "The donation and use-of-funds FAQ entries identify the government portal and describe emergency relief, housing reconstruction, healthcare, and economic recovery. JAM-03 corroborates the government portal identity. Confirm the current donation flow and destination before approval."
+    },
+    {
+      "id": "JAM-02",
+      "title": "Jamaica: Hurricane Melissa",
+      "reference": {
+        "kind": "web",
+        "url": "https://www.ifrc.org/emergency/jamaica-hurricane-melissa"
+      },
+      "publisher": "IFRC",
+      "disaster": "hurricane-melissa",
+      "sourceType": "campaign",
+      "language": "en",
+      "publicationDate": null,
+      "reviewStatus": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "The overview describes Jamaica Red Cross assistance with emergency shelter, food, water, and cash. The appeal links to an [IFRC campaign form](https://donate.redcrossredcrescent.org/ifrc/hurricane-melissa/) on a separate hostname. Review that exact path and its redirects. The page lists a dated emergency appeal document separately."
+    },
+    {
+      "id": "JAM-03",
+      "title": "Hurricane Melissa donation website warning",
+      "reference": {
+        "kind": "web",
+        "url": "https://opm.gov.jm/jamaica-cyber-incident-response-team-issues-urgent-warning-about-fraudulent-hurricane-melissa-donation-websites/"
+      },
+      "publisher": "Jamaica Office of the Prime Minister, relaying JaCIRT",
+      "disaster": "hurricane-melissa",
+      "sourceType": "warning",
+      "language": "en",
+      "publicationDate": "2025-10-31",
+      "reviewStatus": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "The identified-domains section names eight suspected lookalikes, described at the time as being at various stages of development. Record the warning as historical and preserve the source’s qualification. The official-channel section identifies `www.supportjamaica.gov.jm` as the government portal."
+    },
+    {
+      "id": "JAM-04",
+      "title": "Feeling forgotten",
+      "reference": {
+        "kind": "web",
+        "url": "https://jamaica-gleaner.com/article/news/20251106/feeling-forgotten"
+      },
+      "publisher": "The Jamaica Gleaner",
+      "disaster": "hurricane-melissa",
+      "sourceType": "background",
+      "language": "en",
+      "publicationDate": "2025-11-05",
+      "reviewStatus": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "The article reports housing damage and residents’ accounts of water and shelter needs in parts of St Catherine. Use the displayed publication date, which differs from the date in the URL. The page shows an update on 2025-12-09. Treat the reported needs as historical and local to the communities discussed."
+    },
+    {
+      "id": "JAM-05",
+      "title": "UNICEF Leads Child-Focused Response After Hurricane Melissa",
+      "reference": {
+        "kind": "web",
+        "url": "https://www.unicef.org/jamaica/press-releases/unicef-leads-child-focused-response-after-hurricane-melissa"
+      },
+      "publisher": "UNICEF Jamaica",
+      "disaster": "hurricane-melissa",
+      "sourceType": "background",
+      "language": "en",
+      "publicationDate": "2025-11-07",
+      "reviewStatus": "pending",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Documents UNICEF’s child-focused relief response and gives a donation direction as of the announcement. Use it as response context until a current, disaster-specific destination is verified separately."
+    }
+  ]
+}
