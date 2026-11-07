@@ -1,0 +1,23 @@
+# Render Blueprint for ReliefCheck (US01, ai.md §2): one free web service serving the built UI
+# and /api/v1 from the same origin. No Render Postgres (it expires); data lives in Supabase.
+# Secrets are sync:false so they are entered in the Render dashboard and never committed.
+services:
+  - type: web
+    name: reliefcheck
+    runtime: node
+    plan: free
+    autoDeploy: false
+    buildCommand: npm ci && npm run build && npm run check:bundle
+    startCommand: npm start
+    healthCheckPath: /api/v1/health/live
+    envVars:
+      - key: NODE_VERSION
+        value: 24.22.2
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_CA_CERT
+        sync: false
+      - key: SUPABASE_AUTH_ISSUER
+        sync: false
+      - key: SUPABASE_AUTH_JWKS_URL
+        sync: false
