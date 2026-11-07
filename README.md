@@ -22,6 +22,8 @@ If port 5173 is occupied, free it and rerun setup. If port 3000 is occupied, cop
 | `apps/api` | Express API under `/api/v1` and production UI serving |
 | `packages/contracts` | Shared Zod schemas and API paths |
 | [ai.md](ai.md) | Story ownership, architecture, evidence rules and release checklist |
+| [US05 source inventory](docs/us05-source-inventory.md) | Source candidates and review notes for both disasters |
+| [US05 and US07 workflow](docs/us05-us07.md) | Manifest updates, preprocessing, tests, and the US06 adapter interface |
 
 Run `npm run build` to type-check and build all three workspaces before opening a PR. To verify the production layout, stop the dev servers, run `npm run build` then `npm start`, and open [localhost:3000](http://localhost:3000). Both modes expose `GET /api/v1/health/live`.
 
