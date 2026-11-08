@@ -11,6 +11,13 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build"
+    "build": "tsc && vite build",
+    "test": "vitest run --environment jsdom"
+  },
+  "devDependencies": {
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.8",
+    "jsdom": "31.0.0",
+    "vitest": "5.1.0"
   }
 }
