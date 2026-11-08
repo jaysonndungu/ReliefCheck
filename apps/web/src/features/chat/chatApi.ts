@@ -5,44 +5,11 @@ import {
   chatRequestSchema,
   chatResponseSchema,
   disastersResponseSchema,
-  errorEnvelopeSchema,
   type ChatRequest,
   type ChatResponse,
   type Disaster,
 } from '@reliefcheck/contracts'
-
-export class ApiError extends Error {
-  constructor(
-    readonly code: string,
-    message: string,
-    readonly retryable: boolean,
-    readonly retryAfterSeconds?: number,
-  ) {
-    super(message)
-    this.name = 'ApiError'
-  }
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  try {
-    return await response.json()
-  } catch {
-    throw new ApiError('INVALID_RESPONSE', 'The service returned an unreadable response.', true)
-  }
-}
-
-async function handleResponse(response: Response): Promise<unknown> {
-  const body = await readJson(response)
-  if (!response.ok) {
-    const parsed = errorEnvelopeSchema.safeParse(body)
-    if (parsed.success) {
-      const { code, message, retryable, retryAfterSeconds } = parsed.data.error
-      throw new ApiError(code, message, retryable, retryAfterSeconds)
-    }
-    throw new ApiError('INVALID_RESPONSE', 'The service returned an invalid error response.', true)
-  }
-  return body
-}
+import { ApiError, handleResponse } from '../../lib/api'
 
 export async function getDisasters(signal: AbortSignal): Promise<Disaster[]> {
   try {

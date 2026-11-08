@@ -5,6 +5,7 @@ import { Layout } from './components/Layout'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ChatPage } from './pages/ChatPage'
+import { SourcePage } from './pages/SourcePage'
 import './styles.css'
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<ChatPage />} />
+          <Route path="sources/:sourceVersionId" element={<SourcePage />} />
           <Route
             path="appeal"
             element={

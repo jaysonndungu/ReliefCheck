@@ -1,0 +1,7 @@
+# US04 evidence contract handoff
+
+`packages/contracts` adds only `SOURCES_PATH` and `sourceEvidenceResponseSchema`. The response reuses the US02 snapshot and citation field schemas, with a bounded list of reviewed `{locator, excerpt}` entries. Existing `/chat` callers do not change. The new caller is the browser `/sources/:sourceVersionId` page; the API route is `GET /api/v1/sources/:sourceVersionId`.
+
+The optional `releaseId` and `epoch` query parameters must appear together. Answer links include both so an evidence page cannot silently show excerpts from a different release. A direct page visit without them requests the current published version. Responses are `no-store`; stale snapshots return `KB_CHANGED`, unavailable sources return `SOURCE_UNAVAILABLE`, and missing corpus or infrastructure returns a 503 error envelope.
+
+The database schema and published source repository are not present in this checkout. `SourceEvidenceRepository` is an injection boundary, and production currently passes `null`, producing `SOURCE_EVIDENCE_UNAVAILABLE`. Anson and Jayson should review the response and implement the repository against their approved schema. Its `lookup` must read active release, release membership, source approval, and only permitted excerpt text consistently; `currentSnapshot` supports the final epoch check. Never return private object keys, raw uploads, drafts, or source versions outside the active release. This PR does not add a migration or publish draft sources.
