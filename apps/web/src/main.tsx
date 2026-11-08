@@ -6,6 +6,7 @@ import { PlaceholderPage } from './pages/PlaceholderPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ChatPage } from './pages/ChatPage'
 import { SourcePage } from './pages/SourcePage'
+import { AppealPage } from './pages/AppealPage'
 import './styles.css'
 
 function App() {
@@ -15,16 +16,7 @@ function App() {
         <Route element={<Layout />}>
           <Route index element={<ChatPage />} />
           <Route path="sources/:sourceVersionId" element={<SourcePage />} />
-          <Route
-            path="appeal"
-            element={
-              <PlaceholderPage
-                title="Check an Appeal"
-                summary="Compare a donation link or appeal message against reviewed official channels and published warnings."
-                story="US13"
-              />
-            }
-          />
+          <Route path="appeal" element={<AppealPage />} />
           <Route
             path="compare"
             element={
