@@ -6,7 +6,9 @@ import { errorHandler, requestId, sendError } from './http/errors.js'
 import { healthRouter, type ReadinessProbe } from './routes/health.js'
 import { adminRouter } from './routes/admin.js'
 import { sourcesRouter } from './routes/sources.js'
+import { appealsRouter } from './routes/appeals.js'
 import type { SourceEvidenceRepository } from './services/sources/sourceEvidence.js'
+import type { AppealRegistryRepository } from './services/registry/reviewAppeal.js'
 import type { StaffAuthDeps } from './middleware/staffAuth.js'
 
 export type AppDeps = {
@@ -16,6 +18,8 @@ export type AppDeps = {
   staffAuth: StaffAuthDeps | null
   /** Null until a reviewed published source repository is connected. */
   sourceEvidence?: SourceEvidenceRepository | null
+  /** Null until Anson/Jayson's published registry is connected. */
+  appealRegistry?: AppealRegistryRepository | null
   /** Built web assets directory; the UI is served only when it contains index.html. */
   webDist: string | null
 }
@@ -37,6 +41,7 @@ export function createApp(deps: AppDeps): Express {
   api.use(healthRouter(deps.readiness))
   api.use(adminRouter(deps.staffAuth))
   api.use(sourcesRouter(deps.sourceEvidence ?? null))
+  api.use(appealsRouter(deps.appealRegistry ?? null))
   api.use((_request, response) => {
     sendError(response, 404, 'NOT_FOUND', 'API route not found.', false)
   })

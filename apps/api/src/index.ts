@@ -15,6 +15,7 @@ const app = createApp({
       ? { verifyToken: createJwtVerifier(config.staffAuth), roles: createPgStaffRoleRepository(pool) }
       : null,
   sourceEvidence: null,
+  appealRegistry: null,
   webDist: fileURLToPath(new URL('../../web/dist/', import.meta.url)),
 })
 

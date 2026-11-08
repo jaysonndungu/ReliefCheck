@@ -7,6 +7,7 @@ export const ADMIN_ME_PATH = '/admin/me'
 export const DISASTERS_PATH = '/disasters'
 export const CHAT_PATH = '/chat'
 export const SOURCES_PATH = '/sources'
+export const APPEALS_REVIEW_PATH = '/appeals/review'
 
 export const livenessSchema = z.object({ status: z.literal('ok') })
 
@@ -129,3 +130,60 @@ export const sourceEvidenceResponseSchema = z.object({
   })).min(1).max(20),
 })
 export type SourceEvidenceResponse = z.infer<typeof sourceEvidenceResponseSchema>
+
+/** US13 deterministic appeal review. Classification fields are set only by the API. */
+export const appealReviewRequestSchema = z.object({
+  requestId: z.uuid(),
+  disasterId: z.uuid(),
+  input: z.string().trim().min(1).max(4_000),
+})
+export type AppealReviewRequest = z.infer<typeof appealReviewRequestSchema>
+
+export const appealStatusSchema = z.enum([
+  'documented_official_channel', 'published_warning_found', 'insufficient_evidence',
+])
+export const appealReasonSchema = z.enum([
+  'MATCHED_OFFICIAL', 'MATCHED_WARNING', 'UNKNOWN_HOST', 'INVALID_TARGET', 'NO_TARGET',
+  'MULTIPLE_TARGETS', 'EXPIRED_REVIEW', 'HISTORICAL_MATCH', 'RETRACTED_WARNING',
+  'CONFLICTING_RECORDS', 'AMBIGUOUS_MATCH',
+])
+export const appealResultSchema = z.object({
+  status: appealStatusSchema,
+  reasonCodes: z.array(appealReasonSchema).min(1).max(8),
+  targetHost: z.string().min(1).max(253).nullable(),
+  scope: z.enum(['host', 'exact_url']).nullable(),
+  matchedRecordIds: z.array(z.uuid()).max(20),
+  citationIds: z.array(citationSchema.shape.id).max(20),
+  historical: z.boolean(),
+  conflict: z.boolean(),
+})
+export type AppealResult = z.infer<typeof appealResultSchema>
+
+export const appealMatchSchema = z.object({
+  recordVersionId: z.uuid(),
+  kind: z.enum(['campaign', 'warning']),
+  title: z.string().min(1).max(500),
+  organizationName: z.string().min(1).max(300).nullable(),
+  scope: z.enum(['host', 'exact_url']),
+  officialChannelUrl: publicSourceUrlSchema.nullable(),
+  publicationDate: citationSchema.shape.publicationDate,
+  reviewedAt: citationSchema.shape.reviewedAt,
+  historical: z.boolean(),
+  retracted: z.boolean(),
+  citationIds: z.array(citationSchema.shape.id).min(1).max(6),
+})
+export type AppealMatch = z.infer<typeof appealMatchSchema>
+
+export const appealTargetSchema = z.object({
+  targetHost: z.string().min(1).max(253),
+  result: appealResultSchema,
+  matches: z.array(appealMatchSchema).max(20),
+})
+export const appealReviewResponseSchema = z.object({
+  requestId: z.uuid(),
+  snapshot: snapshotSchema,
+  result: appealResultSchema,
+  targets: z.array(appealTargetSchema).max(10),
+  citations: z.array(citationSchema).max(20),
+})
+export type AppealReviewResponse = z.infer<typeof appealReviewResponseSchema>
