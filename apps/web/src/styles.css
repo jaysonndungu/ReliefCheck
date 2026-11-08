@@ -234,6 +234,73 @@ a {
   padding-top: var(--space-3);
 }
 
+.claim-references {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.source-unavailable {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.sources-section {
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+}
+
+.source-list {
+  display: grid;
+  gap: var(--space-4);
+  list-style-position: inside;
+  padding: 0;
+}
+
+.source-card,
+.source-page-content {
+  overflow-wrap: anywhere;
+}
+
+.source-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  padding: var(--space-4);
+}
+
+.source-card h4 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-base);
+}
+
+.source-card p {
+  margin: var(--space-2) 0;
+}
+
+.source-card blockquote {
+  border-left: 3px solid var(--color-accent);
+  margin: var(--space-4) 0;
+  padding-left: var(--space-4);
+  white-space: pre-wrap;
+}
+
+.source-page {
+  max-width: 46rem;
+}
+
+.source-page-content {
+  margin-top: var(--space-6);
+}
+
+@media (max-width: 40rem) {
+  .source-card {
+    padding: var(--space-3);
+  }
+}
+
 /* Service status: every state carries text and an icon, not color alone. */
 .status-banner {
   display: flex;

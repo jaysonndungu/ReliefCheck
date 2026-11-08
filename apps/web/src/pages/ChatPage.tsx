@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { chatRequestSchema, type ChatResponse, type Disaster } from '@reliefcheck/contracts'
-import { ApiError, askQuestion, getDisasters } from '../features/chat/chatApi'
+import { askQuestion, getDisasters } from '../features/chat/chatApi'
+import { CitationList, CitationReferences } from '../features/sources/CitationList'
+import { ApiError } from '../lib/api'
 
 type LoadState = 'loading' | 'ready' | 'unavailable'
 type AnswerState = 'idle' | 'loading' | 'result' | 'error'
@@ -38,6 +40,7 @@ export function ChatPage() {
   const [answer, setAnswer] = useState<ChatResponse | null>(null)
   const [answerError, setAnswerError] = useState('')
   const [submittedQuestion, setSubmittedQuestion] = useState('')
+  const [answerNotice, setAnswerNotice] = useState('')
   const requestRef = useRef<AbortController | null>(null)
   const requestSequence = useRef(0)
   const submitting = useRef(false)
@@ -70,6 +73,17 @@ export function ChatPage() {
   useEffect(() => () => requestRef.current?.abort(), [])
 
   useEffect(() => {
+    function clearOnReturn() {
+      if (document.visibilityState !== 'visible' || !answer) return
+      setAnswer(null)
+      setAnswerState('idle')
+      setAnswerNotice('The previous answer was cleared because published evidence may have changed. Ask again for current evidence.')
+    }
+    document.addEventListener('visibilitychange', clearOnReturn)
+    return () => document.removeEventListener('visibilitychange', clearOnReturn)
+  }, [answer])
+
+  useEffect(() => {
     if (answerState === 'result' || answerState === 'error') resultHeading.current?.focus()
   }, [answerState])
 
@@ -83,6 +97,7 @@ export function ChatPage() {
     setAnswer(null)
     setAnswerError('')
     setSubmittedQuestion('')
+    setAnswerNotice('')
     setAnswerState('idle')
   }
 
@@ -108,6 +123,7 @@ export function ChatPage() {
     requestRef.current = controller
     const sequence = ++requestSequence.current
     setSubmittedQuestion(request.data.question)
+    setAnswerNotice('')
     setAnswer(null)
     setAnswerError('')
     setAnswerState('loading')
@@ -169,6 +185,8 @@ export function ChatPage() {
         </form>
       ) : null}
 
+      {answerNotice ? <p className="notice" role="status">{answerNotice}</p> : null}
+
       {answerState === 'loading' ? <p className="chat-message" role="status" aria-live="polite">Finding reviewed evidence for your question…</p> : null}
       {answerState === 'error' ? (
         <section className="chat-message" role="alert" aria-labelledby="answer-heading">
@@ -182,7 +200,11 @@ export function ChatPage() {
           <p className="submitted-question">{submittedQuestion}</p>
           {answer.claims.length ? (
             <div className="answer-claims">
-              {answer.claims.map((claim, index) => <p key={index}>{claim.text}</p>)}
+              {answer.claims.map((claim, index) => (
+                <p key={index}>{claim.text}{' '}
+                  <CitationReferences citationIds={claim.citationIds} citations={answer.citations} />
+                </p>
+              ))}
             </div>
           ) : <p>The reviewed sources do not establish an answer to this question.</p>}
           {answer.limitations.length ? (
@@ -192,6 +214,7 @@ export function ChatPage() {
             </div>
           ) : null}
           {answer.status === 'extractive_fallback' ? <p>These are source excerpts, not a generated answer.</p> : null}
+          <CitationList citations={answer.citations} snapshot={answer.snapshot} />
         </section>
       ) : null}
     </section>

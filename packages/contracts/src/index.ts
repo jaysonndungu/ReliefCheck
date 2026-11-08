@@ -6,6 +6,7 @@ export const READINESS_PATH = '/health/ready'
 export const ADMIN_ME_PATH = '/admin/me'
 export const DISASTERS_PATH = '/disasters'
 export const CHAT_PATH = '/chat'
+export const SOURCES_PATH = '/sources'
 
 export const livenessSchema = z.object({ status: z.literal('ok') })
 
@@ -113,3 +114,18 @@ export const chatResponseSchema = z.object({
   { path: ['claims'], message: 'An insufficient-evidence response cannot contain answer claims' },
 )
 export type ChatResponse = z.infer<typeof chatResponseSchema>
+
+/** US04 public excerpt response. Raw uploads and unpublished source text never belong here. */
+export const sourceEvidenceResponseSchema = z.object({
+  snapshot: snapshotSchema,
+  sourceVersionId: citationSchema.shape.sourceVersionId,
+  title: citationSchema.shape.title,
+  sourceUrl: citationSchema.shape.sourceUrl,
+  publicationDate: citationSchema.shape.publicationDate,
+  reviewedAt: citationSchema.shape.reviewedAt,
+  excerpts: z.array(z.object({
+    locator: citationSchema.shape.locator,
+    excerpt: citationSchema.shape.excerpt,
+  })).min(1).max(20),
+})
+export type SourceEvidenceResponse = z.infer<typeof sourceEvidenceResponseSchema>
