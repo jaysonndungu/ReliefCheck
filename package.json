@@ -21,7 +21,10 @@
     "dataset:test": "node --import tsx --test apps/api/test/*.test.ts",
     "dataset:typecheck": "tsc --project apps/api/tsconfig.dataset-tests.json --noEmit",
     "api:test": "npm run build --workspace @reliefcheck/contracts && node --import tsx --test apps/api/test/*.test.ts",
-    "check:bundle": "node scripts/check-bundle-secrets.mjs"
+    "api": "npm run api:test",
+    "web:test": "npm run test --workspace @reliefcheck/web",
+    "check:bundle": "node scripts/check-bundle-secrets.mjs",
+    "check": "npm run api:test && npm run web:test && npm run check:bundle"
   },
   "devDependencies": {
     "@types/express": "5.0.6",

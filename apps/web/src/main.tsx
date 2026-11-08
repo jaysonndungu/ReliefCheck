@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from 'react-router'
 import { Layout } from './components/Layout'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { ChatPage } from './pages/ChatPage'
 import './styles.css'
 
 function App() {
@@ -11,16 +12,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<Layout />}>
-          <Route
-            index
-            element={
-              <PlaceholderPage
-                title="Ask ReliefCheck"
-                summary="Ask questions about documented relief channels and published warnings for the Valencia DANA floods and Hurricane Melissa."
-                story="US02–US04"
-              />
-            }
-          />
+          <Route index element={<ChatPage />} />
           <Route
             path="appeal"
             element={
