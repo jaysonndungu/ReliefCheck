@@ -44,7 +44,7 @@ The proposed scale is a classroom demonstration: up to 100 documents, 2,000 chun
 | Files | Private Supabase Storage bucket | Durable source snapshots; Render disk is temporary |
 | Staff authentication | Supabase Auth, pre-provisioned individual staff accounts | No custom password storage or public signup flow |
 | AI | Gemini Developer API through official `@google/genai` SDK | Only external AI provider available |
-| Generation | Initial candidate `gemini-2.5-flash-lite`, configurable server-side | Use only if still available to the actual project's free tier |
+| Generation | `gemini-3.5-flash-lite`, configurable server-side | Listed on the Gemini Developer API free tier. Verify project quota before use. |
 | Embeddings | Initial candidate `gemini-embedding-001`, 768 dimensions | Multilingual semantic retrieval; compact vectors |
 | Tests | Vitest + API integration tests + Playwright; local Postgres/pgvector | Free, meaningful verification of service boundaries |
 
