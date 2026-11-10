@@ -1,0 +1,16 @@
+{
+  "request": {
+    "requestId": "77777777-7777-4777-8777-777777777777",
+    "disasterId": "11111111-1111-4111-8111-111111111111",
+    "question": "Any question"
+  },
+  "httpStatus": 503,
+  "response": {
+    "error": {
+      "code": "CHAT_UNAVAILABLE",
+      "message": "Reviewed evidence search is not configured.",
+      "retryable": true
+    },
+    "requestId": "77777777-7777-4777-8777-777777777777"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "request": {
+    "requestId": "77777777-7777-4777-8777-777777777777",
+    "disasterId": "not-a-uuid",
+    "question": "x"
+  },
+  "httpStatus": 400,
+  "response": {
+    "error": {
+      "code": "INVALID_CHAT_INPUT",
+      "message": "Select a disaster and enter a question of at most 2,000 characters.",
+      "retryable": false
+    },
+    "requestId": "77777777-7777-4777-8777-777777777777"
+  }
+}
