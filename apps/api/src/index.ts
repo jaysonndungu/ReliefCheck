@@ -4,9 +4,13 @@ import { loadConfig } from './config/env.js'
 import { createPool } from './db/pool.js'
 import { createPgReadinessProbe } from './routes/health.js'
 import { createJwtVerifier, createPgStaffRoleRepository } from './middleware/staffAuth.js'
+import { createGeminiClient } from './adapters/gemini/geminiClient.js'
 
 const config = loadConfig()
 const pool = config.database ? createPool(config.database) : null
+const gemini = config.gemini ? createGeminiClient(config.gemini) : null
+// US03: retrieval repository (Anson/Jayson) is not implemented yet, so chat stays 503
+// CHAT_UNAVAILABLE. When it lands: { retrieval, embedder: gemini?.embedder ?? null, generator: gemini?.generator ?? null }.
 
 const app = createApp({
   readiness: pool ? createPgReadinessProbe(pool) : null,
@@ -16,10 +20,12 @@ const app = createApp({
       : null,
   sourceEvidence: null,
   appealRegistry: null,
+  chat: null,
   webDist: fileURLToPath(new URL('../../web/dist/', import.meta.url)),
 })
 
 if (!config.database) console.log('DATABASE_URL not set: readiness will report DATABASE_UNCONFIGURED.')
+if (!config.gemini) console.log('GEMINI_API_KEY not set: chat will return excerpts only, with no generated answers.')
 if (!config.staffAuth) console.log('Supabase Auth not configured: staff routes return 503 AUTH_UNCONFIGURED.')
 
 const server = app.listen(config.port, () => {
