@@ -17,7 +17,7 @@ export interface ReadinessProbe {
 
 /**
  * Minimal DB + active-corpus readiness (ai.md §9): no secrets, no model calls.
- * Until the US05/US11 `kb_state` table exists the corpus is reported unavailable.
+ * An unapplied corpus migration or an empty active release reports unavailable.
  */
 export function createPgReadinessProbe(pool: pg.Pool): ReadinessProbe {
   return {
@@ -25,7 +25,7 @@ export function createPgReadinessProbe(pool: pg.Pool): ReadinessProbe {
       let hasKbState: boolean
       try {
         const result = await pool.query<{ has_kb_state: boolean }>(
-          "SELECT to_regclass('relief.kb_state') IS NOT NULL AS has_kb_state",
+          "SELECT to_regclass('relief.active_corpus') IS NOT NULL AS has_kb_state",
         )
         hasKbState = result.rows[0]?.has_kb_state === true
       } catch {
@@ -34,7 +34,7 @@ export function createPgReadinessProbe(pool: pg.Pool): ReadinessProbe {
       if (!hasKbState) return 'corpus_unavailable'
       try {
         const active = await pool.query(
-          'SELECT 1 FROM relief.kb_state WHERE active_release_id IS NOT NULL LIMIT 1',
+          'SELECT 1 FROM relief.active_corpus LIMIT 1',
         )
         return active.rowCount === 1 ? 'ok' : 'corpus_unavailable'
       } catch {

@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import express, { type Express } from 'express'
-import { API_PREFIX } from '@reliefcheck/contracts'
+import { API_PREFIX, DISASTERS_PATH, type DisastersResponse } from '@reliefcheck/contracts'
 import { errorHandler, requestId, sendError } from './http/errors.js'
 import { healthRouter, type ReadinessProbe } from './routes/health.js'
 import { adminRouter } from './routes/admin.js'
@@ -14,6 +14,7 @@ import type { StaffAuthDeps } from './middleware/staffAuth.js'
 import type { AnswerDeps } from './services/generation/answerQuestion.js'
 
 export type AppDeps = {
+  listDisasters?: (() => Promise<DisastersResponse>) | null
   /** null when no database is configured: readiness reports DATABASE_UNCONFIGURED. */
   readiness: ReadinessProbe | null
   /** null when auth or the database is not configured: staff routes fail closed. */
@@ -43,6 +44,18 @@ export function createApp(deps: AppDeps): Express {
 
   const api = express.Router()
   api.use(healthRouter(deps.readiness))
+  api.get(DISASTERS_PATH, async (_request, response) => {
+    response.setHeader('Cache-Control', 'no-store')
+    try {
+      if (deps.listDisasters) {
+        response.json(await deps.listDisasters())
+        return
+      }
+    } catch {
+      // The database may be temporarily unavailable or awaiting migration.
+    }
+    sendError(response, 503, 'DISASTERS_UNAVAILABLE', 'The disaster list is temporarily unavailable.', true)
+  })
   api.use(adminRouter(deps.staffAuth))
   api.use(sourcesRouter(deps.sourceEvidence ?? null))
   api.use(appealsRouter(deps.appealRegistry ?? null))
