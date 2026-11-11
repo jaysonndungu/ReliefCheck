@@ -30,7 +30,7 @@ Questions that contain a link return 422 `APPEAL_REVIEW_REQUIRED`. A non-factual
   - `semanticSearch` and `lexicalSearch`. Both must filter by release and disaster **before LIMIT** and return results best-first.
   - `currentSnapshot()`.
 
-  There is no corpus migration yet, so `apps/api/src/index.ts` passes `chat: null` and the route returns 503 `CHAT_UNAVAILABLE`.
+  The Postgres repository is wired through `apps/api/src/index.ts` when a database is configured. Apply the corpus migration and publish reviewed evidence using the [corpus runbook](published-corpus.md).
 - **Gemini adapter** (`adapters/gemini/geminiClient.ts`) is created from `GEMINI_API_KEY` and the two model variables. If the key is set without both model IDs, startup fails.
 - **US08** adds `appeal_explanation` and `comparison` templates beside `buildFactualPrompt`.
 
@@ -50,4 +50,4 @@ The fixtures are produced by the real pipeline. `apps/api/test/us03-chat-fixture
 
 ## Checks
 
-Run on 2026-11-10: `npm run build`, `npm run check` (API 123/123, web 22/22, bundle secret scan) and `npm run dataset:typecheck`, all passing. The US03 tests in `apps/api/test/us03-grounded-answers.test.ts` use synthetic `.test` data. The live provider check is in `docs/provider-verification.md`. An end-to-end run against real published sources has not been done, because it needs the retrieval repository and a published release.
+Run on 2026-11-10: `npm run build`, `npm run check` (API 123/123, web 22/22, bundle secret scan) and `npm run dataset:typecheck`, all passing. The US03 tests in `apps/api/test/us03-grounded-answers.test.ts` use synthetic `.test` data. The live provider check is in `docs/provider-verification.md`. An end-to-end run against real published sources has not been done, because it needs a real published release.

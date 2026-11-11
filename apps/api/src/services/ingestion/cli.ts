@@ -3,26 +3,11 @@ import { readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 import { datasetManifestSchema, sourceRecordSchema } from './manifest.js'
+import { extractionSchema } from './extractionSchema.js'
 import { preprocessDocument } from './preprocess.js'
 
 const manifestPath = fileURLToPath(new URL('../../../../../data/drafts/source-manifest.json', import.meta.url))
-const extractionSchema = z.strictObject({
-  source: sourceRecordSchema,
-  document: z.strictObject({
-    sourceId: z.string(),
-    contentHash: z.string(),
-    title: z.string().trim().min(1),
-    language: sourceRecordSchema.shape.language,
-    publicationDate: sourceRecordSchema.shape.publicationDate,
-    retrievedAt: z.iso.datetime({ offset: true }),
-    blocks: z.array(z.strictObject({
-      text: z.string(),
-      page: z.number().int().positive().nullable(),
-      heading: z.string().nullable(),
-    })),
-    warnings: z.array(z.string()),
-  }),
-})
+
 
 async function readJson(path: string): Promise<unknown> {
   return JSON.parse((await readFile(path, 'utf8')).replace(/^﻿/u, ''))

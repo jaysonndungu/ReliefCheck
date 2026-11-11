@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url'
 import { createApp } from './app.js'
 import { loadConfig } from './config/env.js'
 import { createPool } from './db/pool.js'
+import { createPublishedCorpus } from './db/publishedCorpus.js'
 import { createPgReadinessProbe } from './routes/health.js'
 import { createJwtVerifier, createPgStaffRoleRepository } from './middleware/staffAuth.js'
 import { createGeminiClient } from './adapters/gemini/geminiClient.js'
@@ -9,8 +10,7 @@ import { createGeminiClient } from './adapters/gemini/geminiClient.js'
 const config = loadConfig()
 const pool = config.database ? createPool(config.database) : null
 const gemini = config.gemini ? createGeminiClient(config.gemini) : null
-// US03: retrieval repository (Anson/Jayson) is not implemented yet, so chat stays 503
-// CHAT_UNAVAILABLE. When it lands: { retrieval, embedder: gemini?.embedder ?? null, generator: gemini?.generator ?? null }.
+const corpus = pool ? createPublishedCorpus(pool) : null
 
 const app = createApp({
   readiness: pool ? createPgReadinessProbe(pool) : null,
@@ -18,9 +18,14 @@ const app = createApp({
     pool && config.staffAuth
       ? { verifyToken: createJwtVerifier(config.staffAuth), roles: createPgStaffRoleRepository(pool) }
       : null,
-  sourceEvidence: null,
+  sourceEvidence: corpus?.sourceEvidence ?? null,
+  listDisasters: corpus?.listDisasters ?? null,
   appealRegistry: null,
-  chat: null,
+  chat: corpus ? {
+    retrieval: corpus.retrieval,
+    embedder: gemini?.embedder ?? null,
+    generator: gemini?.generator ?? null,
+  } : null,
   webDist: fileURLToPath(new URL('../../web/dist/', import.meta.url)),
 })
 

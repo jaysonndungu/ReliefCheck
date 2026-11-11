@@ -15,6 +15,7 @@
     "dev": "concurrently --kill-others --names contracts,api,web \"npm run watch --workspace @reliefcheck/contracts\" \"node --env-file-if-exists=.env --watch --import tsx apps/api/src/index.ts\" \"npm run dev --workspace @reliefcheck/web\"",
     "build": "npm run build --workspaces --if-present",
     "start": "node --env-file-if-exists=.env apps/api/dist/index.js",
+    "dataset:publish": "node --env-file-if-exists=.env --import tsx apps/api/src/services/ingestion/publishCli.ts",
     "dataset:validate": "node --import tsx apps/api/src/services/ingestion/cli.ts validate",
     "dataset:upsert": "node --import tsx apps/api/src/services/ingestion/cli.ts upsert",
     "dataset:preprocess": "node --import tsx apps/api/src/services/ingestion/cli.ts preprocess",

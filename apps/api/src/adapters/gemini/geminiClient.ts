@@ -43,7 +43,7 @@ function statusOf(error: unknown): number | undefined {
  * The concurrency cap and 429 cooldown are process-local. Durable quota admission
  * (`quota_buckets`, ai.md §10) is not implemented yet and is tracked as a US03 limitation.
  */
-export function createGeminiClient(config: GeminiConfig): { embedder: QueryEmbedder; generator: AnswerGenerator } {
+export function createGeminiClient(config: GeminiConfig): { embedder: QueryEmbedder; generator: AnswerGenerator; embedDocument: (text: string, signal: AbortSignal) => Promise<number[]> } {
   const ai = new GoogleGenAI({ apiKey: config.apiKey })
   let active = 0
   let cooldownUntil = 0
@@ -77,19 +77,19 @@ export function createGeminiClient(config: GeminiConfig): { embedder: QueryEmbed
   }
 
   const dimensions = 768
+  async function embed(text: string, taskType: 'RETRIEVAL_QUERY' | 'RETRIEVAL_DOCUMENT', signal: AbortSignal) {
+    const response = await call(signal, () => ai.models.embedContent({
+      model: config.embeddingModel,
+      contents: text,
+      config: { taskType, outputDimensionality: dimensions, abortSignal: signal },
+    }))
+    return normalizeVector(response.embeddings?.[0]?.values ?? [], dimensions)
+  }
   const embedder: QueryEmbedder = {
     model: config.embeddingModel,
     dimensions,
-    async embedQuery(text, signal) {
-      const response = await call(signal, () => ai.models.embedContent({
-        model: config.embeddingModel,
-        contents: text,
-        config: { taskType: 'RETRIEVAL_QUERY', outputDimensionality: dimensions, abortSignal: signal },
-      }))
-      return normalizeVector(response.embeddings?.[0]?.values ?? [], dimensions)
-    },
+    embedQuery: (text, signal) => embed(text, 'RETRIEVAL_QUERY', signal),
   }
-
   const generator: AnswerGenerator = {
     model: config.generationModel,
     async generate(prompt: BuiltPrompt, signal) {
@@ -116,5 +116,5 @@ export function createGeminiClient(config: GeminiConfig): { embedder: QueryEmbed
     },
   }
 
-  return { embedder, generator }
+  return { embedder, generator, embedDocument: (text, signal) => embed(text, 'RETRIEVAL_DOCUMENT', signal) }
 }
