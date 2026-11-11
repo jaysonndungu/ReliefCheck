@@ -366,6 +366,19 @@ describe('US03 grounded answer orchestration', () => {
     }
   })
 
+  it('stops waiting for the corpus after client cancellation and never starts provider work', async () => {
+    const { deps, calls } = harness({ lexical: [good] })
+    const controller = new AbortController()
+    const corpus = await deps.retrieval.activeCorpus()
+    let finish!: (value: typeof corpus) => void
+    deps.retrieval.activeCorpus = () => new Promise(resolve => { finish = resolve })
+    const result = answerQuestion(deps, request(), controller.signal)
+    controller.abort()
+    await assert.rejects(result, { name: 'AbortError' })
+    finish(corpus)
+    assert.equal(calls.embed.length + calls.generate.length + calls.lexical, 0)
+  })
+
   it('sends only redacted question text to the provider', async () => {
     const { deps, calls } = harness({
       semantic: [semanticHit(good)],

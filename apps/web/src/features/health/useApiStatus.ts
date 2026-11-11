@@ -23,11 +23,17 @@ async function checkOnce(signal: AbortSignal): Promise<boolean> {
 
 function wait(ms: number, signal: AbortSignal) {
   return new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, ms)
-    signal.addEventListener('abort', () => {
-      clearTimeout(timer)
+    if (signal.aborted) {
       resolve()
-    })
+      return
+    }
+    function finish() {
+      clearTimeout(timer)
+      signal.removeEventListener('abort', finish)
+      resolve()
+    }
+    const timer = setTimeout(finish, ms)
+    signal.addEventListener('abort', finish, { once: true })
   })
 }
 

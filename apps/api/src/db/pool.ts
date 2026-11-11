@@ -8,13 +8,31 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
  * non-local host, bounded statements. Migration credentials never come through here.
  */
 export function createPool(database: NonNullable<ServerConfig['database']>): pg.Pool {
-  const host = new URL(database.url).hostname
-  const ssl = LOCAL_HOSTS.has(host)
+  let url: URL
+  try {
+    url = new URL(database.url)
+  } catch {
+    throw new Error('DATABASE_URL must be a valid Postgres connection URL.')
+  }
+  if (!['postgres:', 'postgresql:'].includes(url.protocol) || !url.hostname || url.hash) {
+    throw new Error('DATABASE_URL must be a valid Postgres connection URL.')
+  }
+  const host = url.hostname.replace(/^\[|\]$/g, '')
+  const local = LOCAL_HOSTS.has(host)
+  const allowedModes = local ? ['disable', 'prefer', 'require', 'verify-full'] : ['require', 'verify-full']
+  for (const [name, value] of url.searchParams) {
+    if (name !== 'application_name' && !(name === 'sslmode' && allowedModes.includes(value))) {
+      throw new Error('DATABASE_URL contains unsupported connection options.')
+    }
+  }
+  // pg otherwise lets parameters in the URL replace the explicit TLS configuration.
+  url.searchParams.delete('sslmode')
+  const ssl = local
     ? false
     : { rejectUnauthorized: true, ...(database.caCert ? { ca: database.caCert } : {}) }
 
   const pool = new pg.Pool({
-    connectionString: database.url,
+    connectionString: url.href,
     ssl,
     max: 3,
     connectionTimeoutMillis: 5_000,

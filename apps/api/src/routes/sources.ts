@@ -6,7 +6,7 @@ import { getSourceEvidence, type SourceEvidenceRepository } from '../services/so
 
 const querySchema = z.object({
   releaseId: z.uuid().optional(),
-  epoch: z.coerce.number().int().nonnegative().optional(),
+  epoch: z.string().regex(/^\d+$/u).transform(Number).pipe(z.number().int().nonnegative()).optional(),
 }).refine((value) => (value.releaseId === undefined) === (value.epoch === undefined))
 
 export function sourcesRouter(repository: SourceEvidenceRepository | null): Router {

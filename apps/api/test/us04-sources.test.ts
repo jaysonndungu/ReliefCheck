@@ -73,6 +73,15 @@ describe('US04 public evidence route', () => {
     })
   }
 
+  it('rejects empty, exponent and hex epochs before querying evidence', async () => {
+    const repo = repository()
+    repo.lookup = async () => assert.fail('invalid epoch must not reach the repository')
+    for (const epoch of ['', '1e2', '0x7', '7.0']) {
+      const result = await request(repo, `/api/v1/sources/${SOURCE_ID}?releaseId=${RELEASE_ID}&epoch=${epoch}`)
+      assert.equal(result.status, 400)
+    }
+  })
+
   it('rejects an old answer snapshot and an in-flight release change', async () => {
     const old = await request(repository(), `/api/v1/sources/${SOURCE_ID}?releaseId=${OTHER_RELEASE}&epoch=1`)
     assert.equal(old.status, 409)

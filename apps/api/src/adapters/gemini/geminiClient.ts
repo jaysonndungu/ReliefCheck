@@ -1,3 +1,4 @@
+import { waitForAbortable } from '../../abortable.js'
 import { GoogleGenAI, Type, type Schema } from '@google/genai'
 import type { GeminiConfig } from '../../config/env.js'
 import {
@@ -54,25 +55,24 @@ export function createGeminiClient(config: GeminiConfig): { embedder: QueryEmbed
     if (active >= MAX_CONCURRENT_CALLS) throw new ProviderError('busy')
     if (signal.aborted) throw new ProviderError('timeout')
     active += 1
-    let onAbort: (() => void) | undefined
+    // Cancellation ends the caller's wait. The slot stays occupied until the SDK settles.
+    const operation = Promise.resolve().then(() => {
+      if (signal.aborted) throw new ProviderError('timeout')
+      return run()
+    }).catch((error: unknown) => {
+      if (statusOf(error) === 429) {
+        cooldownUntil = Math.max(cooldownUntil, Date.now() + 60_000)
+        throw new ProviderError('quota', 60)
+      }
+      if (error instanceof ProviderError) throw error
+      throw new ProviderError(signal.aborted ? 'timeout' : 'unavailable')
+    }).finally(() => { active -= 1 })
     try {
-      const aborted = new Promise<never>((_resolve, reject) => {
-        onAbort = () => reject(new ProviderError('timeout'))
-        signal.addEventListener('abort', onAbort, { once: true })
-      })
-      return await Promise.race([run(), aborted])
+      return await waitForAbortable(operation, signal)
     } catch (error) {
       if (error instanceof ProviderError) throw error
       if (signal.aborted) throw new ProviderError('timeout')
-      const status = statusOf(error)
-      if (status === 429) {
-        cooldownUntil = Date.now() + 60_000
-        throw new ProviderError('quota', 60)
-      }
-      throw new ProviderError('unavailable')
-    } finally {
-      active -= 1
-      if (onAbort) signal.removeEventListener('abort', onAbort)
+      throw error
     }
   }
 

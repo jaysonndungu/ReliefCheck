@@ -13,6 +13,7 @@ if (!existsSync(dist)) {
 
 const SERVER_ONLY_NAMES = [
   'DATABASE_URL',
+  'CORPUS_OPERATOR_DATABASE_URL',
   'DATABASE_CA_CERT',
   'SUPABASE_SERVICE_ROLE_KEY',
   'GEMINI_API_KEY',
@@ -21,6 +22,7 @@ const SERVER_ONLY_NAMES = [
 
 const PATTERNS = [
   { name: 'JWT', regex: /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/ },
+  { name: 'Gemini authorization key', regex: /\bAQ\.[A-Za-z0-9_-]{40,}/ },
   { name: 'Google API key', regex: /AIza[0-9A-Za-z_-]{35}/ },
   { name: 'Supabase secret key', regex: /sb_secret_[A-Za-z0-9_-]{10,}/ },
   { name: 'Postgres connection string', regex: /postgres(?:ql)?:\/\/[^\s"'`]+:[^\s"'`]+@/ },

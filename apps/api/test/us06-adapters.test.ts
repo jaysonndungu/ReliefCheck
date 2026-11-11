@@ -74,3 +74,33 @@ test('dispatches a US05 file source through extraction and US07 preparation', as
   assert.equal(result.preparation.sourceContentHash, result.document.contentHash)
   assert.equal(result.chunks[0]?.sourceId, source.id)
 })
+
+test('reports invalid UTF-8 as an ingestion input error', () => {
+  assert.throws(() => extractTextFile({
+    sourceId: 'FILE-01', bytes: Uint8Array.of(0xff), filename: 'file.txt', mimeType: 'text/plain',
+  }), (error: unknown) => error instanceof IngestionInputError && error.code === 'INVALID_FILE_ENCODING')
+})
+
+test('times out a stalled HTML body even after headers arrive', async () => {
+  let cancelled = false
+  const body = new ReadableStream<Uint8Array>({ cancel() { cancelled = true } })
+  await assert.rejects(fetchApprovedHtml({
+    approved: { id: 'test', url: 'https://example.test/article', allowedHost: 'example.test' },
+    fetcher: async () => new Response(body, { headers: { 'content-type': 'text/html' } }),
+    timeoutMs: 20,
+  }), (error: unknown) => error instanceof IngestionInputError && error.code === 'SOURCE_FETCH_TIMEOUT')
+  assert.equal(cancelled, true)
+})
+
+test('cancels an oversized HTML stream before reading it to completion', async () => {
+  let cancelled = false
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) { controller.enqueue(new Uint8Array(2 * 1024 * 1024 + 1)) },
+    cancel() { cancelled = true },
+  })
+  await assert.rejects(fetchApprovedHtml({
+    approved: { id: 'test', url: 'https://example.test/article', allowedHost: 'example.test' },
+    fetcher: async () => new Response(body, { headers: { 'content-type': 'text/html' } }),
+  }), (error: unknown) => error instanceof IngestionInputError && error.code === 'SOURCE_TOO_LARGE')
+  assert.equal(cancelled, true)
+})

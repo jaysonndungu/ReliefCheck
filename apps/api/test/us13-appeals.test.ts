@@ -149,6 +149,18 @@ describe('US13 API boundary', () => {
     } finally { await server.close() }
   })
 
+  it('accepts a 4,000-character appeal even when UTF-8 needs more than 8 KiB', async () => {
+    const server = await startServer({ appealRegistry: repository([]) })
+    try {
+      const response = await fetch(`${server.url}/api/v1/appeals/review`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: REQUEST, disasterId: DISASTER, input: '援'.repeat(4000) }),
+      })
+      assert.equal(response.status, 200)
+      assert.equal(appealReviewResponseSchema.parse(await response.json()).result.status, 'insufficient_evidence')
+    } finally { await server.close() }
+  })
+
   it('returns a reviewed result and invalidates a changed release', async () => {
     const server = await startServer({ appealRegistry: repository([campaign()]) })
     try {

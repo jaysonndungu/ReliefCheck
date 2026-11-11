@@ -1,3 +1,4 @@
+import { createPool } from '../src/db/pool.js'
 import { after, before, describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
@@ -130,5 +131,31 @@ describe('US01 server configuration', () => {
         }),
       /https/,
     )
+  })
+})
+
+describe('database TLS configuration', () => {
+  it('keeps explicit CA verification with a common remote sslmode URL', async () => {
+    const pool = createPool({
+      url: 'postgresql://user:fake@example.test/db?sslmode=require', caCert: 'synthetic CA',
+    })
+    try {
+      assert.deepEqual(pool.options.ssl, { rejectUnauthorized: true, ca: 'synthetic CA' })
+      assert.equal(new URL(pool.options.connectionString!).searchParams.has('sslmode'), false)
+    } finally { await pool.end() }
+  })
+
+  it('rejects unsupported remote options and never prints an invalid connection string', () => {
+    assert.throws(() => createPool({ url: 'postgresql://example.test/db?sslmode=disable', caCert: undefined }),
+      /unsupported connection options/)
+    assert.throws(() => createPool({ url: 'synthetic-secret invalid url', caCert: undefined }),
+      { message: 'DATABASE_URL must be a valid Postgres connection URL.' })
+  })
+
+  it('treats the IPv6 loopback host as local', async () => {
+    const pool = createPool({ url: 'postgresql://[::1]/db', caCert: undefined })
+    try {
+      assert.equal(pool.options.ssl, false)
+    } finally { await pool.end() }
   })
 })

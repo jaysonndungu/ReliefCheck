@@ -5,7 +5,7 @@ import { reviewAppeal, type AppealRegistryRepository } from '../services/registr
 
 export function appealsRouter(repository: AppealRegistryRepository | null): Router {
   const router = Router()
-  router.post(APPEALS_REVIEW_PATH, json({ limit: '8kb' }), async (request, response) => {
+  router.post(APPEALS_REVIEW_PATH, json({ limit: '32kb' }), async (request, response) => {
     response.setHeader('Cache-Control', 'no-store')
     const input = appealReviewRequestSchema.safeParse(request.body)
     if (!input.success) {

@@ -22,6 +22,12 @@ function sourceError(error: unknown): string {
 export function SourcePage() {
   const { sourceVersionId } = useParams()
   const { search } = useLocation()
+  return <SourceEvidence key={JSON.stringify([sourceVersionId, search])} sourceVersionId={sourceVersionId} search={search} />
+}
+
+function SourceEvidence({ sourceVersionId, search }: { sourceVersionId: string | undefined; search: string }) {
+  const [revision, setRevision] = useState(0)
+  const active = useRef<AbortController | null>(null)
   const [state, setState] = useState<PageState>('loading')
   const [evidence, setEvidence] = useState<SourceEvidenceResponse | null>(null)
   const [message, setMessage] = useState('')
@@ -29,12 +35,13 @@ export function SourcePage() {
 
   useEffect(() => {
     const controller = new AbortController()
+    active.current = controller
     const params = new URLSearchParams(search)
     const releaseId = params.get('releaseId')
     const epochText = params.get('epoch')
     const epoch = epochText === null ? null : Number(epochText)
     if (!sourceVersionId || (releaseId === null) !== (epochText === null) ||
-        (epoch !== null && (!Number.isSafeInteger(epoch) || epoch < 0))) {
+        (epochText !== null && (!/^\d+$/u.test(epochText) || !Number.isSafeInteger(epoch)))) {
       setState('unavailable')
       setMessage('The source reference is invalid.')
       return () => controller.abort()
@@ -55,7 +62,19 @@ export function SourcePage() {
       },
     )
     return () => controller.abort()
-  }, [sourceVersionId, search])
+  }, [sourceVersionId, search, revision])
+
+  useEffect(() => {
+    function revalidateOnReturn() {
+      if (document.visibilityState !== 'visible') return
+      active.current?.abort()
+      setEvidence(null)
+      setState('loading')
+      setRevision(previous => previous + 1)
+    }
+    document.addEventListener('visibilitychange', revalidateOnReturn)
+    return () => document.removeEventListener('visibilitychange', revalidateOnReturn)
+  }, [])
 
   useEffect(() => {
     document.title = evidence && state === 'ready' ? `${evidence.title} · ReliefCheck` : 'Source evidence · ReliefCheck'
