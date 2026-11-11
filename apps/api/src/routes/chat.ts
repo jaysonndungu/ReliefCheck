@@ -43,6 +43,7 @@ export function chatRouter(deps: AnswerDeps | null): Router {
         sendError(response, 409, 'KB_CHANGED', 'The published evidence changed. Ask your question again.', true)
       }
     } catch {
+      if (controller.signal.aborted || response.destroyed) return
       // No request body, question text or provider details are logged or returned.
       sendError(response, 503, 'CHAT_UNAVAILABLE', 'Answering is temporarily unavailable.', true)
     }

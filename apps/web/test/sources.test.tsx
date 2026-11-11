@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import type { Citation } from '@reliefcheck/contracts'
@@ -140,6 +140,33 @@ describe('US04 public source page', () => {
     renderSource(`/sources/${SOURCE_A}?releaseId=${RELEASE}&epoch=3`)
     expect(await screen.findByText('The published evidence changed. Return to your answer and ask again.')).toBeTruthy()
     expect(screen.queryByText('Exact public excerpt.')).toBeNull()
+  })
+
+  it('clears an open source page while rechecking evidence after returning to the tab', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(json({
+        snapshot, sourceVersionId: SOURCE_A, title: 'Reviewed source', sourceUrl: null,
+        publicationDate: null, reviewedAt: '2026-11-08T16:00:00Z',
+        excerpts: [{ locator: 'Page 1', excerpt: 'Previously published evidence.' }],
+      }))
+    let finish!: (response: Response) => void
+    fetchMock.mockImplementationOnce(() => new Promise<Response>(resolve => { finish = resolve }))
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    try {
+      renderSource(`/sources/${SOURCE_A}?releaseId=${RELEASE}&epoch=3`)
+      await screen.findByText('Previously published evidence.')
+      act(() => { document.dispatchEvent(new Event('visibilitychange')) })
+      expect(screen.queryByText('Previously published evidence.')).toBeNull()
+      expect(screen.getByText('Loading source evidence…')).toBeTruthy()
+      finish(json({
+        error: { code: 'KB_CHANGED', message: 'Changed.', retryable: true }, requestId: SOURCE_A,
+      }, 409))
+      await screen.findByRole('heading', { name: 'Source unavailable' })
+      expect(screen.queryByText('Previously published evidence.')).toBeNull()
+    } finally {
+      vi.restoreAllMocks()
+    }
   })
 
   it('rejects a response for a different source version', async () => {

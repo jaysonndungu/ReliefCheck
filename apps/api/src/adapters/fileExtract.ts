@@ -47,7 +47,12 @@ function validateInput(input: FileInput): void {
 
 export function extractTextFile(input: FileInput): ExtractedDocument {
   validateInput(input)
-  const text = new TextDecoder('utf-8', { fatal: true }).decode(input.bytes).replace(/^\uFEFF/u, '')
+  let text: string
+  try {
+    text = new TextDecoder('utf-8', { fatal: true }).decode(input.bytes)
+  } catch {
+    throw new IngestionInputError('INVALID_FILE_ENCODING', 'Text and Markdown files must be valid UTF-8.')
+  }
   const normalizedText = normalizeText(text)
   if (!normalizedText) {
     throw new IngestionInputError('EMPTY_EXTRACTION', 'No text could be extracted from the file.')

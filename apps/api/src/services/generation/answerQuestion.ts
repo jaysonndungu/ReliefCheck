@@ -1,3 +1,4 @@
+import { waitForAbortable } from '../../abortable.js'
 import {
   chatResponseSchema,
   type ChatRequest, type ChatResponse, type Citation,
@@ -68,7 +69,9 @@ export async function answerQuestion(
   const deadlines = deps.deadlines ?? DEFAULT_DEADLINES
   const signal = stageSignal(parentSignal, deadlines.totalMs)
 
-  const corpus = await deps.retrieval.activeCorpus()
+  signal.throwIfAborted()
+  const corpus = await waitForAbortable(deps.retrieval.activeCorpus(), signal)
+  signal.throwIfAborted()
   if (!corpus) return { kind: 'corpus_unavailable' }
   const snapshot: Snapshot = { ...corpus.snapshot, asOf: (deps.now?.() ?? new Date()).toISOString() }
   const { releaseId } = corpus.snapshot
@@ -83,27 +86,34 @@ export async function answerQuestion(
     corpus.embeddingProfile.model === deps.embedder.model &&
     corpus.embeddingProfile.dimensions === deps.embedder.dimensions
   if (deps.embedder && profileMatches) {
+    const embeddingSignal = stageSignal(signal, deadlines.embedMs)
     try {
-      const vector = await deps.embedder.embedQuery(providerQuestion, stageSignal(signal, deadlines.embedMs))
-      semantic = await deps.retrieval.semanticSearch({
+      const vector = await waitForAbortable(deps.embedder.embedQuery(providerQuestion, embeddingSignal), embeddingSignal)
+      signal.throwIfAborted()
+      semantic = await waitForAbortable(deps.retrieval.semanticSearch({
         releaseId, disasterId, profileId: corpus.embeddingProfile.id, vector, limit: config.candidatesPerModality,
-      })
+      }), signal)
       hybrid = true
     } catch (error) {
-      if (!(error instanceof ProviderError)) throw error
+      signal.throwIfAborted()
+      if (!(error instanceof ProviderError) && !embeddingSignal.aborted) throw error
       // Embedding quota/timeout/unavailable: degrade to scoped lexical retrieval (ai.md §10).
     }
   }
 
-  const lexical = await deps.retrieval.lexicalSearch({
+  signal.throwIfAborted()
+  const lexical = await waitForAbortable(deps.retrieval.lexicalSearch({
     releaseId, disasterId, question: request.question, limit: config.candidatesPerModality,
-  })
+  }), signal)
+  signal.throwIfAborted()
   const selected = fuseAndSelect({ semantic, lexical, question: request.question, releaseId, disasterId }, config)
   const retrievalMode = hybrid ? 'hybrid' : 'lexical_only'
   const baseLimitations: string[] = hybrid ? [] : [LIMITATION_TEXT.lexicalOnly]
 
   const finish = async (response: Omit<ChatResponse, 'requestId' | 'snapshot' | 'mode' | 'retrievalMode'>): Promise<AnswerOutcome> => {
-    const current = await deps.retrieval.currentSnapshot()
+    signal.throwIfAborted()
+    const current = await waitForAbortable(deps.retrieval.currentSnapshot(), signal)
+    signal.throwIfAborted()
     if (!current || current.releaseId !== releaseId || current.epoch !== corpus.snapshot.epoch) {
       return { kind: 'changed' }
     }
@@ -140,10 +150,13 @@ export async function answerQuestion(
   const prompt = buildFactualPrompt({ question: providerQuestion, disasterName: null, evidence })
 
   let candidate: unknown
+  signal.throwIfAborted()
+  const generationSignal = stageSignal(signal, deadlines.generateMs)
   try {
-    candidate = await deps.generator.generate(prompt, stageSignal(signal, deadlines.generateMs))
+    candidate = await waitForAbortable(deps.generator.generate(prompt, generationSignal), generationSignal)
   } catch (error) {
-    if (!(error instanceof ProviderError)) throw error
+    signal.throwIfAborted()
+    if (!(error instanceof ProviderError) && !generationSignal.aborted) throw error
     return extractive()
   }
 
