@@ -1,0 +1,16 @@
+{
+  "request": {
+    "requestId": "77777777-7777-4777-8777-777777777777",
+    "disasterId": "11111111-1111-4111-8111-111111111111",
+    "question": "How are scammers impersonating relief charities?"
+  },
+  "httpStatus": 409,
+  "response": {
+    "error": {
+      "code": "KB_CHANGED",
+      "message": "The published evidence changed. Ask your question again.",
+      "retryable": true
+    },
+    "requestId": "77777777-7777-4777-8777-777777777777"
+  }
+}

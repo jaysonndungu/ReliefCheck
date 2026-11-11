@@ -1,0 +1,43 @@
+{
+  "request": {
+    "requestId": "77777777-7777-4777-8777-777777777777",
+    "disasterId": "11111111-1111-4111-8111-111111111111",
+    "question": "consumer office warning relief charities"
+  },
+  "httpStatus": 200,
+  "response": {
+    "requestId": "77777777-7777-4777-8777-777777777777",
+    "snapshot": {
+      "releaseId": "33333333-3333-4333-8333-333333333333",
+      "epoch": 1,
+      "asOf": "2026-11-10T12:00:00.000Z"
+    },
+    "mode": "factual",
+    "status": "supported",
+    "retrievalMode": "lexical_only",
+    "claims": [
+      {
+        "text": "The consumer office warned that fraudsters impersonated relief charities through messaging apps.",
+        "citationIds": [
+          "S1"
+        ]
+      }
+    ],
+    "citations": [
+      {
+        "id": "S1",
+        "sourceVersionId": "55555555-5555-4555-8555-555555555555",
+        "title": "SYNTHETIC consumer warning about relief impersonation",
+        "sourceUrl": "https://consumer-office.test/warnings/relief",
+        "publicationDate": "2024-11-14",
+        "reviewedAt": "2026-11-08T16:00:00.000Z",
+        "locator": "Paragraph 2",
+        "excerpt": "On 14 November 2024 the synthetic consumer office warned that fraudsters impersonated relief charities through messaging apps and asked for transfers to personal accounts. It advised donors to use only channels listed on an organisation's own website."
+      }
+    ],
+    "limitations": [
+      "Semantic search was unavailable, so these results use keyword matching only.",
+      "ReliefCheck summarizes reviewed sources. It cannot certify that an organization, website or appeal is safe."
+    ]
+  }
+}

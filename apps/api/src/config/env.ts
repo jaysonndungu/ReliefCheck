@@ -15,12 +15,20 @@ const envSchema = z.object({
   DATABASE_CA_CERT: optionalString,
   SUPABASE_AUTH_ISSUER: optionalUrl,
   SUPABASE_AUTH_JWKS_URL: optionalUrl,
+  /** US03: server-only Gemini Developer API key. Never exposed to the browser bundle. */
+  GEMINI_API_KEY: optionalString,
+  GEMINI_GENERATION_MODEL: optionalString,
+  GEMINI_EMBEDDING_MODEL: optionalString,
 })
+
+export type GeminiConfig = { apiKey: string; generationModel: string; embeddingModel: string }
 
 export type ServerConfig = {
   port: number
   database: { url: string; caCert: string | undefined } | null
   staffAuth: { issuer: string; jwksUrl: URL; audience: string } | null
+  /** null when no key is set: chat degrades to excerpts and makes no provider calls. */
+  gemini: GeminiConfig | null
 }
 
 /**
@@ -47,8 +55,23 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     throw new Error('Invalid server configuration: SUPABASE_AUTH_JWKS_URL must use https.')
   }
 
+  // Models are explicit configuration; never silently fall back to another model (ai.md §2).
+  const gemini = values.GEMINI_API_KEY
+    ? {
+        apiKey: values.GEMINI_API_KEY,
+        generationModel: values.GEMINI_GENERATION_MODEL ?? '',
+        embeddingModel: values.GEMINI_EMBEDDING_MODEL ?? '',
+      }
+    : null
+  if (gemini && (!gemini.generationModel || !gemini.embeddingModel)) {
+    throw new Error(
+      'Invalid server configuration: set GEMINI_GENERATION_MODEL and GEMINI_EMBEDDING_MODEL with GEMINI_API_KEY.',
+    )
+  }
+
   return {
     port: values.PORT,
+    gemini,
     database: values.DATABASE_URL
       ? { url: values.DATABASE_URL, caCert: values.DATABASE_CA_CERT }
       : null,

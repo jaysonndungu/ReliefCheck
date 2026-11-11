@@ -7,9 +7,11 @@ import { healthRouter, type ReadinessProbe } from './routes/health.js'
 import { adminRouter } from './routes/admin.js'
 import { sourcesRouter } from './routes/sources.js'
 import { appealsRouter } from './routes/appeals.js'
+import { chatRouter } from './routes/chat.js'
 import type { SourceEvidenceRepository } from './services/sources/sourceEvidence.js'
 import type { AppealRegistryRepository } from './services/registry/reviewAppeal.js'
 import type { StaffAuthDeps } from './middleware/staffAuth.js'
+import type { AnswerDeps } from './services/generation/answerQuestion.js'
 
 export type AppDeps = {
   /** null when no database is configured: readiness reports DATABASE_UNCONFIGURED. */
@@ -20,6 +22,8 @@ export type AppDeps = {
   sourceEvidence?: SourceEvidenceRepository | null
   /** Null until Anson/Jayson's published registry is connected. */
   appealRegistry?: AppealRegistryRepository | null
+  /** US03: null until the published-release retrieval repository is connected. */
+  chat?: AnswerDeps | null
   /** Built web assets directory; the UI is served only when it contains index.html. */
   webDist: string | null
 }
@@ -42,6 +46,7 @@ export function createApp(deps: AppDeps): Express {
   api.use(adminRouter(deps.staffAuth))
   api.use(sourcesRouter(deps.sourceEvidence ?? null))
   api.use(appealsRouter(deps.appealRegistry ?? null))
+  api.use(chatRouter(deps.chat ?? null))
   api.use((_request, response) => {
     sendError(response, 404, 'NOT_FOUND', 'API route not found.', false)
   })
