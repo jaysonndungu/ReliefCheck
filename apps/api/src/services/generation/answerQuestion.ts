@@ -77,8 +77,10 @@ export async function answerQuestion(
   const { releaseId } = corpus.snapshot
   const { disasterId } = request
 
-  // Only redacted text leaves the server.
-  const providerQuestion = redactPersonalData(request.question)
+  // Normalize sentence endings without changing punctuation inside names, dates, or amounts.
+  const normalized = request.question.normalize('NFC').replace(/\s+/gu, ' ').trim()
+  const question = normalized.replace(/[.!?。！？؟]+$/u, '').trimEnd() || normalized
+  const providerQuestion = redactPersonalData(question)
 
   let semantic: SemanticHit[] = []
   let hybrid = false
@@ -103,10 +105,10 @@ export async function answerQuestion(
 
   signal.throwIfAborted()
   const lexical = await waitForAbortable(deps.retrieval.lexicalSearch({
-    releaseId, disasterId, question: request.question, limit: config.candidatesPerModality,
+    releaseId, disasterId, question, limit: config.candidatesPerModality,
   }), signal)
   signal.throwIfAborted()
-  const selected = fuseAndSelect({ semantic, lexical, question: request.question, releaseId, disasterId }, config)
+  const selected = fuseAndSelect({ semantic, lexical, question, releaseId, disasterId }, config)
   const retrievalMode = hybrid ? 'hybrid' : 'lexical_only'
   const baseLimitations: string[] = hybrid ? [] : [LIMITATION_TEXT.lexicalOnly]
 

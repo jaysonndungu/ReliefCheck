@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { chatRequestSchema, chatResponseSchema, citationSchema } from '@reliefcheck/contracts'
 import { ChatPage } from '../src/pages/ChatPage'
@@ -55,6 +55,96 @@ describe('US02 shared contract proposal', () => {
 })
 
 describe('US02 chat page', () => {
+  it.each([
+    ['matching release', { releaseId: RELEASE, epoch: 1 }, 200, null],
+    ['changed release', { releaseId: RELEASE, epoch: 2 }, 200, /older evidence release/],
+    ['cleared corpus', { error: { code: 'CORPUS_UNAVAILABLE', message: 'No corpus.', retryable: false }, requestId: RELEASE }, 503, /after reviewed evidence is published/],
+    ['failed check', { error: { code: 'DATABASE_UNAVAILABLE', message: 'Database unavailable.', retryable: true }, requestId: RELEASE }, 503, /Could not check whether/],
+  ] as const)('keeps the answer on tab return with %s', async (_label, body, status, notice) => {
+    const fetchMock = vi.fn((url: string, options?: RequestInit) => {
+      if (url.endsWith('/corpus/snapshot')) return Promise.resolve(json(body, status))
+      if (!options?.method) return Promise.resolve(json(disasters))
+      return Promise.resolve(json(answer(JSON.parse(String(options.body)).requestId)))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const visibility = vi.spyOn(document, 'visibilityState', 'get')
+    try {
+      const user = userEvent.setup()
+      render(<ChatPage />)
+      await screen.findByRole('combobox', { name: 'Disaster' })
+      await user.type(screen.getByRole('textbox', { name: 'Your question' }), 'What happened?')
+      await user.click(screen.getByRole('button', { name: 'Ask question' }))
+      await screen.findByText('Synthetic test answer.')
+      expect(screen.getByRole('link', { name: 'Open original source' }).getAttribute('target')).toBe('_blank')
+      visibility.mockReturnValue('hidden')
+      fireEvent(document, new Event('visibilitychange'))
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      visibility.mockReturnValue('visible')
+      await act(async () => { fireEvent(document, new Event('visibilitychange')) })
+      expect(fetchMock).toHaveBeenCalledTimes(3)
+      expect(screen.getByText('Synthetic test answer.')).toBeTruthy()
+      if (notice) expect(screen.getByRole('status').textContent).toMatch(notice)
+      else expect(screen.queryByRole('status')).toBeNull()
+    } finally {
+      visibility.mockRestore()
+    }
+  })
+
+  it('ignores a tab-return check that finishes after a newer answer', async () => {
+    let completeCheck!: (response: Response) => void
+    const fetchMock = vi.fn((url: string, options?: RequestInit) => {
+      if (url.endsWith('/corpus/snapshot')) return new Promise<Response>((resolve) => { completeCheck = resolve })
+      if (!options?.method) return Promise.resolve(json(disasters))
+      const request = JSON.parse(String(options.body))
+      return Promise.resolve(json({
+        ...answer(request.requestId),
+        claims: [{ text: `Answer to: ${request.question}`, citationIds: ['c1'] }],
+      }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    try {
+      const user = userEvent.setup()
+      render(<ChatPage />)
+      await screen.findByRole('combobox', { name: 'Disaster' })
+      const question = screen.getByRole('textbox', { name: 'Your question' })
+      await user.type(question, 'First question')
+      await user.click(screen.getByRole('button', { name: 'Ask question' }))
+      await screen.findByRole('heading', { name: 'Answer from reviewed evidence' })
+      fireEvent(document, new Event('visibilitychange'))
+      await user.clear(question)
+      await user.type(question, 'New question')
+      await user.click(screen.getByRole('button', { name: 'Ask question' }))
+      await screen.findByText('Answer to: New question')
+      await act(async () => completeCheck(json({ releaseId: RELEASE, epoch: 2 })))
+      expect(screen.getByText('Answer to: New question')).toBeTruthy()
+      expect(screen.queryByRole('status')).toBeNull()
+    } finally {
+      visibility.mockRestore()
+    }
+  })
+
+  it('shows retrieved excerpts without claiming insufficient evidence when generation falls back', async () => {
+    vi.stubGlobal('fetch', vi.fn((_url: string, options?: RequestInit) => {
+      if (!options?.method) return Promise.resolve(json(disasters))
+      const { requestId } = JSON.parse(String(options.body))
+      return Promise.resolve(json({
+        ...answer(requestId),
+        status: 'extractive_fallback',
+        claims: [],
+        limitations: ['A generated answer was unavailable.'],
+      }))
+    }))
+    const user = userEvent.setup()
+    render(<ChatPage />)
+    await screen.findByRole('combobox', { name: 'Disaster' })
+    await user.type(screen.getByRole('textbox', { name: 'Your question' }), 'What happened')
+    await user.click(screen.getByRole('button', { name: 'Ask question' }))
+    expect(await screen.findByRole('heading', { name: 'Relevant source excerpts' })).toBeTruthy()
+    expect(screen.getByText('Synthetic evidence excerpt.')).toBeTruthy()
+    expect(screen.queryByText('The reviewed sources do not establish an answer to this question.')).toBeNull()
+  })
+
   it('reports unavailable disaster data instead of displaying synthetic production choices', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json({
       error: { code: 'NOT_FOUND', message: 'API route not found.', retryable: false }, requestId: RELEASE,

@@ -47,9 +47,68 @@ function chunk(overrides: Partial<RetrievedChunk> = {}): RetrievedChunk {
 }
 const semanticHit = (c: RetrievedChunk, cosineSimilarity = 0.9): SemanticHit => ({ ...c, cosineSimilarity })
 
+describe('US02 published corpus snapshot', () => {
+  it('returns only release identity and distinguishes cleared evidence from a failed check', async () => {
+    const { deps, calls } = harness({})
+    let current: Snapshot | null | Error = snapshot
+    deps.retrieval.currentSnapshot = async () => {
+      if (current instanceof Error) throw current
+      return current
+    }
+    const server = await startServer({ chat: deps })
+    try {
+      const read = async () => {
+        const response = await fetch(`${server.url}/api/v1/corpus/snapshot`)
+        assert.equal(response.headers.get('cache-control'), 'no-store')
+        return { status: response.status, body: await response.json() }
+      }
+      assert.deepEqual(await read(), { status: 200, body: { releaseId: RELEASE, epoch: 3 } })
+      current = null
+      const cleared = await read()
+      assert.equal(cleared.status, 503)
+      assert.equal(errorEnvelopeSchema.parse(cleared.body).error.code, 'CORPUS_UNAVAILABLE')
+      current = new Error('internal database failure')
+      const failed = await read()
+      assert.equal(failed.status, 503)
+      assert.equal(errorEnvelopeSchema.parse(failed.body).error.code, 'DATABASE_UNAVAILABLE')
+      assert.doesNotMatch(JSON.stringify(failed.body), /internal database failure/)
+      assert.equal(calls.embed.length + calls.generate.length, 0)
+    } finally {
+      await server.close()
+    }
+  })
+})
+
 function request(question = 'Which synthetic relief office distributes water kits?'): ChatRequest {
   return { requestId: REQUEST, disasterId: VALENCIA, question }
 }
+
+it('uses the same retrieval and generation inputs with or without a trailing question mark', async () => {
+  const evidence = chunk()
+  const { deps, calls } = harness({
+    semantic: [semanticHit(evidence)],
+    generate: () => ({
+      answerability: 'supported',
+      claims: [{ text: 'The synthetic relief office distributes water kits.', citationIds: ['S1'] }],
+      limitations: [],
+    }),
+  })
+  const lexicalQueries: string[] = []
+  deps.retrieval.lexicalSearch = async ({ question }) => {
+    lexicalQueries.push(question)
+    return []
+  }
+
+  const question = 'Did the office distribute 1.5 tonnes of water kits'
+  const plain = await answerQuestion(deps, request(question))
+  const punctuated = await answerQuestion(deps, request(`${question}?`))
+
+  assert.deepEqual(calls.embed, [question, question])
+  assert.deepEqual(lexicalQueries, [question, question])
+  assert.equal(calls.generate.length, 2)
+  assert.deepEqual(calls.generate[0], calls.generate[1])
+  assert.deepEqual(plain, punctuated)
+})
 
 type Calls = { embed: string[]; generate: BuiltPrompt[]; semantic: number; lexical: number }
 

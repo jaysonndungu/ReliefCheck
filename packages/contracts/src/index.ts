@@ -6,6 +6,7 @@ export const READINESS_PATH = '/health/ready'
 export const ADMIN_ME_PATH = '/admin/me'
 export const DISASTERS_PATH = '/disasters'
 export const CHAT_PATH = '/chat'
+export const CORPUS_SNAPSHOT_PATH = '/corpus/snapshot'
 export const SOURCES_PATH = '/sources'
 export const APPEALS_REVIEW_PATH = '/appeals/review'
 
@@ -69,9 +70,11 @@ export const chatRequestSchema = z.object({
 })
 export type ChatRequest = z.infer<typeof chatRequestSchema>
 
-export const snapshotSchema = z.object({
+export const corpusSnapshotSchema = z.object({
   releaseId: z.uuid(),
   epoch: z.number().int().nonnegative(),
+})
+export const snapshotSchema = corpusSnapshotSchema.extend({
   asOf: z.iso.datetime({ offset: true }),
 })
 

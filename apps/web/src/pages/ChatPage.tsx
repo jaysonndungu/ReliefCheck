@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { chatRequestSchema, type ChatResponse, type Disaster } from '@reliefcheck/contracts'
-import { askQuestion, getDisasters } from '../features/chat/chatApi'
+import { askQuestion, getCorpusSnapshot, getDisasters } from '../features/chat/chatApi'
 import { CitationList, CitationReferences } from '../features/sources/CitationList'
 import { ApiError } from '../lib/api'
 
 type LoadState = 'loading' | 'ready' | 'unavailable'
 type AnswerState = 'idle' | 'loading' | 'result' | 'error'
+type Freshness = 'unchanged' | 'older' | 'unpublished' | 'unknown'
+
+const FRESHNESS_NOTICES: Record<Freshness, string> = {
+  unchanged: '',
+  older: 'This answer is from an older evidence release. Ask again to check for current reviewed evidence.',
+  unpublished: 'This answer is from an older evidence release. Ask again after reviewed evidence is published.',
+  unknown: 'Could not check whether the reviewed evidence has changed. Ask again to retry.',
+}
 
 function friendlyError(error: unknown, action: 'disasters' | 'chat'): string {
   if (error instanceof ApiError) {
@@ -40,7 +48,7 @@ export function ChatPage() {
   const [answer, setAnswer] = useState<ChatResponse | null>(null)
   const [answerError, setAnswerError] = useState('')
   const [submittedQuestion, setSubmittedQuestion] = useState('')
-  const [answerNotice, setAnswerNotice] = useState('')
+  const [freshness, setFreshness] = useState<Freshness>('unchanged')
   const requestRef = useRef<AbortController | null>(null)
   const requestSequence = useRef(0)
   const submitting = useRef(false)
@@ -73,14 +81,37 @@ export function ChatPage() {
   useEffect(() => () => requestRef.current?.abort(), [])
 
   useEffect(() => {
-    function clearOnReturn() {
-      if (document.visibilityState !== 'visible' || !answer) return
-      setAnswer(null)
-      setAnswerState('idle')
-      setAnswerNotice('The previous answer was cleared because published evidence may have changed. Ask again for current evidence.')
+    const snapshot = answer?.snapshot
+    if (!snapshot) return
+    let pending: AbortController | undefined
+    const sequence = requestSequence.current
+    const checkOnReturn = async () => {
+      if (document.visibilityState !== 'visible') return
+      pending?.abort()
+      const controller = new AbortController()
+      pending = controller
+      const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(8_000)])
+      const stillDisplayed = () => !controller.signal.aborted && sequence === requestSequence.current
+      try {
+        const current = await getCorpusSnapshot(signal)
+        if (stillDisplayed()) {
+          setFreshness(current.releaseId === snapshot.releaseId && current.epoch === snapshot.epoch ? 'unchanged' : 'older')
+        }
+      } catch (error) {
+        if (!stillDisplayed()) return
+        if (error instanceof ApiError && error.code === 'CORPUS_UNAVAILABLE') {
+          setFreshness('unpublished')
+        } else {
+          setFreshness((previous) => previous === 'older' || previous === 'unpublished' ? 'older' : 'unknown')
+        }
+      }
     }
-    document.addEventListener('visibilitychange', clearOnReturn)
-    return () => document.removeEventListener('visibilitychange', clearOnReturn)
+    const onVisibilityChange = () => void checkOnReturn()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      pending?.abort()
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, [answer])
 
   useEffect(() => {
@@ -97,7 +128,7 @@ export function ChatPage() {
     setAnswer(null)
     setAnswerError('')
     setSubmittedQuestion('')
-    setAnswerNotice('')
+    setFreshness('unchanged')
     setAnswerState('idle')
   }
 
@@ -123,7 +154,7 @@ export function ChatPage() {
     requestRef.current = controller
     const sequence = ++requestSequence.current
     setSubmittedQuestion(request.data.question)
-    setAnswerNotice('')
+    setFreshness('unchanged')
     setAnswer(null)
     setAnswerError('')
     setAnswerState('loading')
@@ -178,14 +209,13 @@ export function ChatPage() {
             disabled={answerState === 'loading'}
             required
           />
-          <p id="question-help" className="form-help">Choose one disaster. Questions can be up to 2,000 characters.</p>
+          <p id="question-help" className="form-help">Chat searches reviewed sources for the selected disaster. Questions can be up to 2,000 characters.</p>
+          <p className="form-help">To check a current donation link, use <a href="/appeal">Appeal Review</a>.</p>
           <button type="submit" className="button" disabled={answerState === 'loading' || !question.trim()}>
             {answerState === 'loading' ? 'Finding evidence…' : 'Ask question'}
           </button>
         </form>
       ) : null}
-
-      {answerNotice ? <p className="notice" role="status">{answerNotice}</p> : null}
 
       {answerState === 'loading' ? <p className="chat-message" role="status" aria-live="polite">Finding reviewed evidence for your question…</p> : null}
       {answerState === 'error' ? (
@@ -198,6 +228,10 @@ export function ChatPage() {
         <section className="chat-result" aria-labelledby="answer-heading" aria-live="polite">
           <h2 id="answer-heading" ref={resultHeading} tabIndex={-1}>{STATUS_LABELS[answer.status]}</h2>
           <p className="submitted-question">{submittedQuestion}</p>
+          <p className="form-help">Evidence used as of <time dateTime={answer.snapshot.asOf}>
+            {new Date(answer.snapshot.asOf).toLocaleString()}
+          </time></p>
+          {freshness !== 'unchanged' ? <p className="notice" role="status">{FRESHNESS_NOTICES[freshness]}</p> : null}
           {answer.claims.length ? (
             <div className="answer-claims">
               {answer.claims.map((claim, index) => (
@@ -206,7 +240,9 @@ export function ChatPage() {
                 </p>
               ))}
             </div>
-          ) : <p>The reviewed sources do not establish an answer to this question.</p>}
+          ) : answer.status === 'insufficient_evidence' ? (
+            <p>The reviewed sources do not establish an answer to this question.</p>
+          ) : null}
           {answer.limitations.length ? (
             <div className="answer-limitations">
               <h3>Limits of this answer</h3>
