@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import express, { type Express } from 'express'
-import { API_PREFIX, DISASTERS_PATH, type DisastersResponse } from '@reliefcheck/contracts'
+import { API_PREFIX, CORPUS_SNAPSHOT_PATH, DISASTERS_PATH, corpusSnapshotSchema, type DisastersResponse } from '@reliefcheck/contracts'
 import { errorHandler, requestId, sendError } from './http/errors.js'
 import { healthRouter, type ReadinessProbe } from './routes/health.js'
 import { adminRouter } from './routes/admin.js'
@@ -44,6 +44,23 @@ export function createApp(deps: AppDeps): Express {
 
   const api = express.Router()
   api.use(healthRouter(deps.readiness))
+  api.get(CORPUS_SNAPSHOT_PATH, async (_request, response) => {
+    response.setHeader('Cache-Control', 'no-store')
+    if (!deps.chat) {
+      sendError(response, 503, 'DATABASE_UNCONFIGURED', 'The reviewed knowledge base is not configured.', false)
+      return
+    }
+    try {
+      const snapshot = await deps.chat.retrieval.currentSnapshot()
+      if (!snapshot) {
+        sendError(response, 503, 'CORPUS_UNAVAILABLE', 'No reviewed knowledge base is published.', false)
+        return
+      }
+      response.json(corpusSnapshotSchema.parse(snapshot))
+    } catch {
+      sendError(response, 503, 'DATABASE_UNAVAILABLE', 'The reviewed knowledge base could not be checked.', true)
+    }
+  })
   api.get(DISASTERS_PATH, async (_request, response) => {
     response.setHeader('Cache-Control', 'no-store')
     try {

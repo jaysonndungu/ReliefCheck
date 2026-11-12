@@ -1,15 +1,26 @@
 import {
   API_PREFIX,
   CHAT_PATH,
+  CORPUS_SNAPSHOT_PATH,
   DISASTERS_PATH,
   chatRequestSchema,
   chatResponseSchema,
+  corpusSnapshotSchema,
   disastersResponseSchema,
   type ChatRequest,
   type ChatResponse,
   type Disaster,
 } from '@reliefcheck/contracts'
 import { ApiError, handleResponse } from '../../lib/api'
+
+export async function getCorpusSnapshot(signal: AbortSignal) {
+  const response = await fetch(`${API_PREFIX}${CORPUS_SNAPSHOT_PATH}`, {
+    signal,
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+  })
+  return corpusSnapshotSchema.parse(await handleResponse(response))
+}
 
 export async function getDisasters(signal: AbortSignal): Promise<Disaster[]> {
   try {
