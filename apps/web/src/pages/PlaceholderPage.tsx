@@ -17,8 +17,7 @@ export function PlaceholderPage({ title, summary, story }: Props) {
       <h1 id="page-title">{title}</h1>
       <p className="lead">{summary}</p>
       <p className="notice">
-        <strong>Not available yet.</strong> This screen is being built in {story}. No answers or evidence are
-        shown until a reviewed knowledge base is published.
+        <strong>Not available yet.</strong> This screen is being built in {story}.
       </p>
     </section>
   )
