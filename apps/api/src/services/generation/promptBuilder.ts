@@ -49,6 +49,7 @@ export function buildFactualPrompt(input: {
   question: string
   disasterName: string | null
   evidence: PromptEvidence[]
+  overview?: boolean
 }): BuiltPrompt {
   const contents = [
     block('question', { disaster: input.disasterName, text: input.question }),
@@ -63,7 +64,14 @@ export function buildFactualPrompt(input: {
   ].join('\n\n')
   return {
     mode: 'factual',
-    systemInstruction: FACTUAL_SYSTEM_INSTRUCTION,
+    systemInstruction: input.overview
+      ? FACTUAL_SYSTEM_INSTRUCTION + '\n' + [
+        'For this disaster overview, summarize the main findings documented in the supplied passages.',
+        'Cover distinct topics where there is evidence, such as impacts, relief response, and warnings.',
+        'Describe the scope of the available evidence and do not imply exhaustive coverage.',
+        'If the passages cover only a narrow part of the disaster, return partial with cited findings.',
+      ].join('\n')
+      : FACTUAL_SYSTEM_INSTRUCTION,
     contents,
     maxOutputTokens: GENERATION_LIMITS.maxOutputTokens,
     temperature: GENERATION_LIMITS.temperature,

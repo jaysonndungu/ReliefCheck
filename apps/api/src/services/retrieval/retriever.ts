@@ -94,6 +94,13 @@ export type FusedChunk = RetrievedChunk & {
  * Deterministic: ties are broken by chunk ID. Never manufactures diversity.
  */
 export function fuseAndSelect(
+  input: Parameters<typeof rankEvidence>[0],
+  config: RetrievalConfig = RETRIEVAL_CONFIG,
+): FusedChunk[] {
+  return selectEvidence(rankEvidence(input, config), config)
+}
+
+export function rankEvidence(
   input: {
     semantic: SemanticHit[]
     lexical: RetrievedChunk[]
@@ -136,7 +143,7 @@ export function fuseAndSelect(
     return semanticOk || lexicalOk
   }
 
-  const ranked = [...byId.values()]
+  return [...byId.values()]
     .map((chunk) => {
       chunk.rrfScore =
         (chunk.semanticRank ? 1 / (config.rrfK + chunk.semanticRank) : 0) +
@@ -145,23 +152,32 @@ export function fuseAndSelect(
     })
     .filter(sufficient)
     .sort((a, b) => b.rrfScore - a.rrfScore || (a.chunkId < b.chunkId ? -1 : a.chunkId > b.chunkId ? 1 : 0))
+}
 
+export function selectEvidence(
+  ranked: FusedChunk[],
+  config: RetrievalConfig,
+  preferDistinctSources = false,
+): FusedChunk[] {
   const selected: FusedChunk[] = []
   const perSource = new Map<string, number>()
   const seenText = new Set<string>()
   let characters = 0
-  for (const chunk of ranked) {
-    if (selected.length >= config.maxChunks) break
-    const normalized = chunk.text.replace(/\s+/gu, ' ').trim()
-    if (seenText.has(normalized)) continue
-    const sourceCount = perSource.get(chunk.sourceVersionId) ?? 0
-    if (sourceCount >= config.maxChunksPerSource) continue
-    // Skip rather than truncate: a cut excerpt could drop a negation or date.
-    if (characters + chunk.text.length > config.maxEvidenceCharacters) continue
-    seenText.add(normalized)
-    perSource.set(chunk.sourceVersionId, sourceCount + 1)
-    characters += chunk.text.length
-    selected.push(chunk)
+  const sourceCaps = preferDistinctSources ? [1, config.maxChunksPerSource] : [config.maxChunksPerSource]
+  for (const cap of sourceCaps) {
+    for (const chunk of ranked) {
+      if (selected.length >= config.maxChunks) return selected
+      const normalized = chunk.text.replace(/\s+/gu, ' ').trim()
+      if (seenText.has(normalized)) continue
+      const sourceCount = perSource.get(chunk.sourceVersionId) ?? 0
+      if (sourceCount >= cap) continue
+      // Skip rather than truncate: a cut excerpt could drop a negation or date.
+      if (characters + chunk.text.length > config.maxEvidenceCharacters) continue
+      seenText.add(normalized)
+      perSource.set(chunk.sourceVersionId, sourceCount + 1)
+      characters += chunk.text.length
+      selected.push(chunk)
+    }
   }
   return selected
 }

@@ -5,8 +5,9 @@ import {
 } from '@reliefcheck/contracts'
 import {
   RETRIEVAL_CONFIG, fuseAndSelect,
-  type FusedChunk, type RetrievalConfig, type RetrievalRepository, type SemanticHit, type Snapshot,
+  type RetrievedChunk, type RetrievalConfig, type RetrievalRepository, type SemanticHit, type Snapshot,
 } from '../retrieval/retriever.js'
+import { isDisasterOverview, OVERVIEW_EMBEDDING_QUERY, retrieveDisasterOverview } from '../retrieval/disasterOverview.js'
 import { buildFactualPrompt, type PromptEvidence } from './promptBuilder.js'
 import { validateGeneratedAnswer } from './outputValidator.js'
 import { ProviderError, type AnswerGenerator, type QueryEmbedder } from './provider.js'
@@ -42,7 +43,7 @@ function stageSignal(parent: AbortSignal, ms: number): AbortSignal {
   return AbortSignal.any([parent, AbortSignal.timeout(ms)])
 }
 
-function toCitation(chunk: FusedChunk, id: string): Citation {
+function toCitation(chunk: RetrievedChunk, id: string): Citation {
   return {
     id,
     sourceVersionId: chunk.sourceVersionId,
@@ -81,6 +82,7 @@ export async function answerQuestion(
   const normalized = request.question.normalize('NFC').replace(/\s+/gu, ' ').trim()
   const question = normalized.replace(/[.!?。！？؟]+$/u, '').trimEnd() || normalized
   const providerQuestion = redactPersonalData(question)
+  const overview = isDisasterOverview(question)
 
   let semantic: SemanticHit[] = []
   let hybrid = false
@@ -90,7 +92,8 @@ export async function answerQuestion(
   if (deps.embedder && profileMatches) {
     const embeddingSignal = stageSignal(signal, deadlines.embedMs)
     try {
-      const vector = await waitForAbortable(deps.embedder.embedQuery(providerQuestion, embeddingSignal), embeddingSignal)
+      const embeddingQuery = overview ? OVERVIEW_EMBEDDING_QUERY : providerQuestion
+      const vector = await waitForAbortable(deps.embedder.embedQuery(embeddingQuery, embeddingSignal), embeddingSignal)
       signal.throwIfAborted()
       semantic = await waitForAbortable(deps.retrieval.semanticSearch({
         releaseId, disasterId, profileId: corpus.embeddingProfile.id, vector, limit: config.candidatesPerModality,
@@ -104,11 +107,16 @@ export async function answerQuestion(
   }
 
   signal.throwIfAborted()
-  const lexical = await waitForAbortable(deps.retrieval.lexicalSearch({
-    releaseId, disasterId, question, limit: config.candidatesPerModality,
-  }), signal)
+  const scope = { releaseId, disasterId }
+  const selected = overview
+    ? await waitForAbortable(retrieveDisasterOverview(deps.retrieval, scope, semantic, config), signal)
+    : fuseAndSelect({
+      ...scope, semantic, question,
+      lexical: await waitForAbortable(deps.retrieval.lexicalSearch({
+        ...scope, question, limit: config.candidatesPerModality,
+      }), signal),
+    }, config)
   signal.throwIfAborted()
-  const selected = fuseAndSelect({ semantic, lexical, question, releaseId, disasterId }, config)
   const retrievalMode = hybrid ? 'hybrid' : 'lexical_only'
   const baseLimitations: string[] = hybrid ? [] : [LIMITATION_TEXT.lexicalOnly]
 
@@ -149,7 +157,7 @@ export async function answerQuestion(
     locator: citation.locator,
     text: citation.excerpt,
   }))
-  const prompt = buildFactualPrompt({ question: providerQuestion, disasterName: null, evidence })
+  const prompt = buildFactualPrompt({ question: providerQuestion, disasterName: null, evidence, overview })
 
   let candidate: unknown
   signal.throwIfAborted()

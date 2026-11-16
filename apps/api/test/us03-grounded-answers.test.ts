@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { chatResponseSchema, errorEnvelopeSchema, type ChatRequest } from '@reliefcheck/contracts'
 import {
-  RETRIEVAL_CONFIG, fuseAndSelect,
+  RETRIEVAL_CONFIG, contentTerms, fuseAndSelect, termOverlap,
   type RetrievalRepository, type RetrievedChunk, type SemanticHit, type Snapshot,
 } from '../src/services/retrieval/retriever.js'
 import { LIMITATION_TEXT, answerQuestion, type AnswerDeps } from '../src/services/generation/answerQuestion.js'
@@ -166,6 +166,52 @@ async function answered(deps: AnswerDeps, req = request()) {
   assert.ok(chatResponseSchema.safeParse(outcome.response).success)
   return outcome.response
 }
+
+it('routes the broad published-resources question to scoped, multi-source synthesis without embeddings', async () => {
+  const passages = [
+    chunk({ disasterId: MELISSA, text: 'Synthetic flooding damaged homes.' }),
+    chunk({ disasterId: MELISSA, sourceVersionId: SOURCE_B, text: 'Synthetic aid included food and water.' }),
+    chunk({ disasterId: MELISSA, sourceVersionId: SOURCE_C, text: 'A synthetic advisory warned about fake donation websites.' }),
+    chunk({ text: 'Other disaster flooding damaged homes.' }),
+    chunk({ disasterId: MELISSA, reviewState: 'pending', text: 'Unreviewed flooding damaged homes.' }),
+    chunk({ disasterId: MELISSA, memberReleaseId: OLD_RELEASE, text: 'Old release flooding damaged homes.' }),
+  ]
+  const { deps, calls } = harness({
+    embedder: 'throws',
+    generate: () => ({
+      answerability: 'supported',
+      claims: [
+        { text: 'Synthetic flooding damaged homes.', citationIds: ['S1'] },
+        { text: 'Synthetic aid included food and water.', citationIds: ['S2'] },
+        { text: 'A synthetic advisory warned about fake donation websites.', citationIds: ['S3'] },
+      ],
+      limitations: [],
+    }),
+  })
+  const lexicalQueries: string[] = []
+  deps.retrieval.lexicalSearch = async ({ question, releaseId, disasterId }) => {
+    assert.equal(releaseId, RELEASE)
+    assert.equal(disasterId, MELISSA)
+    lexicalQueries.push(question)
+    return passages.filter((passage) => termOverlap(contentTerms(question), passage.text) > 0)
+  }
+  const overview = { ...request('What did published resources say about this disaster?'), disasterId: MELISSA }
+  const response = await answered(deps, overview)
+  assert.equal(response.status, 'supported')
+  assert.equal(response.retrievalMode, 'lexical_only')
+  assert.deepEqual(response.citations.map((citation) => citation.excerpt), passages.slice(0, 3).map((p) => p.text))
+  assert.equal(lexicalQueries.length, 3)
+  assert.equal(calls.embed.length, 1)
+  assert.equal(calls.generate.length, 1)
+  assert.match(calls.generate[0]!.systemInstruction, /For this disaster overview/)
+
+  const unrelated = 'What did published resources say about bus schedules?'
+  const abstention = await answered(deps, { ...overview, question: unrelated })
+  assert.equal(lexicalQueries[3], unrelated.slice(0, -1))
+  assert.equal(lexicalQueries.length, 4)
+  assert.equal(abstention.status, 'insufficient_evidence')
+  assert.equal(calls.generate.length, 1)
+})
 
 describe('US03 retrieval fusion and sufficiency', () => {
   it('fuses with reciprocal rank fusion and breaks ties by chunk ID deterministically', () => {

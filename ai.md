@@ -520,7 +520,7 @@ Measure warm p95 API latency with dataset/model/version recorded. Initial target
 7. Use `packages/contracts`; validate at HTTP, provider and persistence boundaries. Parameterize SQL. Keep credentials server-only. No `VITE_` secrets.
 8. No destructive resets of a shared DB, force pushes, publishing, external account changes or deployment without the team's authorized process. Local reversible development is expected.
 9. Add meaningful tests for the story's acceptance and failure paths. Run typecheck, lint, unit/integration tests relevant to changed modules, and the affected browser flow. Do not claim tests ran if they did not.
-10. PR description includes story ID, behavior change, contract/migration changes, test evidence, remaining limitations and screenshot for UI work. A second teammate reviews before merging.
+10. PR description includes story ID, behavior change, contract/migration changes, test evidence, remaining limitations and screenshot for UI work.
 11. Do not solve a blocked dependency by permanently shipping mocks. Keep adapter stubs confined to tests/dev; make missing production configuration fail visibly.
 12. When ambiguous, preserve the stricter evidence boundary, document the question, and coordinate with the relevant owner. Do not silently reinterpret the assignment.
 
