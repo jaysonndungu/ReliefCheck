@@ -42,6 +42,8 @@ export interface RetrievalRepository {
   lexicalSearch(query: {
     releaseId: string; disasterId: string; question: string; limit: number
   }): Promise<RetrievedChunk[]>
+  /** Representative passages for an overview when ranked searches find none. */
+  overviewPassages(query: { releaseId: string; disasterId: string; limit: number }): Promise<RetrievedChunk[]>
   /** Re-read just before responding to detect clear/publish during the request. */
   currentSnapshot(): Promise<Snapshot | null>
 }
@@ -88,6 +90,13 @@ export type FusedChunk = RetrievedChunk & {
   cosineSimilarity: number | null
 }
 
+export function isEligibleChunk(chunk: RetrievedChunk, scope: { releaseId: string; disasterId: string }): boolean {
+  return chunk.memberReleaseId === scope.releaseId &&
+    chunk.disasterId === scope.disasterId &&
+    chunk.reviewState === 'approved' &&
+    chunk.text.trim().length > 0
+}
+
 /**
  * Reciprocal rank fusion (1-based ranks, absent modality contributes 0), then the evidence
  * sufficiency gate, de-duplication and per-source / total / character caps.
@@ -110,11 +119,7 @@ export function rankEvidence(
   },
   config: RetrievalConfig = RETRIEVAL_CONFIG,
 ): FusedChunk[] {
-  const eligible = (chunk: RetrievedChunk) =>
-    chunk.memberReleaseId === input.releaseId &&
-    chunk.disasterId === input.disasterId &&
-    chunk.reviewState === 'approved' &&
-    chunk.text.trim().length > 0
+  const eligible = (chunk: RetrievedChunk) => isEligibleChunk(chunk, input)
 
   const byId = new Map<string, FusedChunk>()
   input.semantic.filter(eligible).slice(0, config.candidatesPerModality).forEach((hit, index) => {
@@ -154,12 +159,12 @@ export function rankEvidence(
     .sort((a, b) => b.rrfScore - a.rrfScore || (a.chunkId < b.chunkId ? -1 : a.chunkId > b.chunkId ? 1 : 0))
 }
 
-export function selectEvidence(
-  ranked: FusedChunk[],
+export function selectEvidence<Chunk extends RetrievedChunk>(
+  ranked: Chunk[],
   config: RetrievalConfig,
   preferDistinctSources = false,
-): FusedChunk[] {
-  const selected: FusedChunk[] = []
+): Chunk[] {
+  const selected: Chunk[] = []
   const perSource = new Map<string, number>()
   const seenText = new Set<string>()
   let characters = 0

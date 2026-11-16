@@ -51,6 +51,7 @@ function deps(options: {
       snapshot, embeddingProfile: { id: '99999999-9999-4999-8999-999999999999', model: 'synthetic-embedding', dimensions: 768 },
     },
     semanticSearch: async () => options.noEvidence ? [] : [warning, report].map((c) => ({ ...c, cosineSimilarity: 0.82 })),
+    overviewPassages: async () => [],
     lexicalSearch: async () => options.noEvidence ? [] : options.lexicalOnlyHits ? [warning] : [warning],
     currentSnapshot: async () => options.changed ? { ...snapshot, epoch: 2 } : snapshot,
   }

@@ -35,7 +35,9 @@ export const LIMITATION_TEXT = {
   insufficient: 'The reviewed sources for this disaster do not contain enough evidence to answer this question.',
   partial: 'Parts of this question are not covered by the reviewed sources.',
   lexicalOnly: 'Semantic search was unavailable, so these results use keyword matching only.',
+  overviewWithoutSemantic: 'Semantic search was unavailable. The overview uses reviewed sources for the selected disaster.',
   fallback: 'A generated answer was unavailable or failed validation. These are retrieved source excerpts, not a synthesized answer.',
+  overviewAbstained: 'A summary could not be generated from the available passages. These are excerpts from reviewed sources for the selected disaster.',
   evidenceOnly: 'ReliefCheck summarizes reviewed sources. It cannot certify that an organization, website or appeal is safe.',
 } as const
 
@@ -109,7 +111,7 @@ export async function answerQuestion(
   signal.throwIfAborted()
   const scope = { releaseId, disasterId }
   const selected = overview
-    ? await waitForAbortable(retrieveDisasterOverview(deps.retrieval, scope, semantic, config), signal)
+    ? await waitForAbortable(retrieveDisasterOverview(deps.retrieval, scope, semantic, config, signal), signal)
     : fuseAndSelect({
       ...scope, semantic, question,
       lexical: await waitForAbortable(deps.retrieval.lexicalSearch({
@@ -118,7 +120,9 @@ export async function answerQuestion(
     }, config)
   signal.throwIfAborted()
   const retrievalMode = hybrid ? 'hybrid' : 'lexical_only'
-  const baseLimitations: string[] = hybrid ? [] : [LIMITATION_TEXT.lexicalOnly]
+  const baseLimitations: string[] = hybrid ? [] : [
+    overview ? LIMITATION_TEXT.overviewWithoutSemantic : LIMITATION_TEXT.lexicalOnly,
+  ]
 
   const finish = async (response: Omit<ChatResponse, 'requestId' | 'snapshot' | 'mode' | 'retrievalMode'>): Promise<AnswerOutcome> => {
     signal.throwIfAborted()
@@ -142,9 +146,9 @@ export async function answerQuestion(
   }
 
   const citations = selected.map((chunk, index) => toCitation(chunk, `S${index + 1}`))
-  const extractive = () => finish({
+  const extractive = (limitation: string = LIMITATION_TEXT.fallback) => finish({
     status: 'extractive_fallback', claims: [], citations,
-    limitations: [LIMITATION_TEXT.fallback, ...baseLimitations],
+    limitations: [limitation, ...baseLimitations],
   })
 
   if (!deps.generator) return extractive()
@@ -176,6 +180,7 @@ export async function answerQuestion(
   const answer = validated.answer
 
   if (answer.answerability === 'insufficient') {
+    if (overview) return extractive(LIMITATION_TEXT.overviewAbstained)
     return finish({
       status: 'insufficient_evidence', claims: [], citations: [],
       limitations: [LIMITATION_TEXT.insufficient, ...baseLimitations],

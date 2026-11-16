@@ -57,6 +57,19 @@ export function createPublishedCorpus(pool: Queryable) {
         LIMIT $4`, [releaseId, disasterId, terms, limit])
       return rows.map(row => ({ ...row, reviewedAt: row.reviewedAt.toISOString() }))
     },
+    async overviewPassages({ releaseId, disasterId, limit }) {
+      const { rows } = await pool.query<ChunkRow>(`
+        SELECT ${chunkFields}
+        FROM (
+          SELECT *, row_number() OVER (PARTITION BY source_version_id ORDER BY ordinal, chunk_id) AS source_rank
+          FROM relief.published_chunks
+          WHERE release_id = $1 AND disaster_id = $2 AND review_state = 'approved'
+        ) passages
+        WHERE source_rank <= 2
+        ORDER BY source_rank, source_version_id, chunk_id
+        LIMIT $3`, [releaseId, disasterId, limit])
+      return rows.map(row => ({ ...row, reviewedAt: row.reviewedAt.toISOString() }))
+    },
   }
 
   const sourceEvidence: SourceEvidenceRepository = {

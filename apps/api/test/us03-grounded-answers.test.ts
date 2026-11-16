@@ -129,6 +129,7 @@ function harness(options: {
     },
     semanticSearch: async () => { calls.semantic += 1; return options.semantic ?? [] },
     lexicalSearch: async () => { calls.lexical += 1; return options.lexical ?? [] },
+    overviewPassages: async () => [],
     currentSnapshot: async () => options.current === undefined ? snapshot : options.current,
   }
   const embedder: QueryEmbedder = {
@@ -211,6 +212,28 @@ it('routes the broad published-resources question to scoped, multi-source synthe
   assert.equal(lexicalQueries.length, 4)
   assert.equal(abstention.status, 'insufficient_evidence')
   assert.equal(calls.generate.length, 1)
+})
+
+it('shows reviewed disaster excerpts when ranked search finds nothing and the overview model abstains', async () => {
+  const evidence = chunk({ disasterId: MELISSA, text: 'Synthetic reference: roof repairs began on Monday.' })
+  const { deps, calls } = harness({
+    generate: () => ({ answerability: 'insufficient', claims: [], limitations: [] }),
+  })
+  const overview = { ...request('What did published resources say about this disaster'), disasterId: MELISSA }
+  const empty = await answered(deps, overview)
+  assert.equal(empty.status, 'insufficient_evidence')
+  assert.equal(calls.generate.length, 0)
+
+  deps.retrieval.overviewPassages = async ({ releaseId, disasterId }) => {
+    assert.equal(releaseId, RELEASE)
+    assert.equal(disasterId, MELISSA)
+    return [chunk(), chunk({ disasterId: MELISSA, reviewState: 'pending' }), evidence]
+  }
+  const fallback = await answered(deps, overview)
+  assert.equal(fallback.status, 'extractive_fallback')
+  assert.deepEqual(fallback.claims, [])
+  assert.deepEqual(fallback.citations.map((citation) => citation.excerpt), [evidence.text])
+  assert.ok(fallback.limitations.includes(LIMITATION_TEXT.overviewAbstained))
 })
 
 describe('US03 retrieval fusion and sufficiency', () => {

@@ -1,5 +1,5 @@
 import {
-  rankEvidence, selectEvidence,
+  isEligibleChunk, rankEvidence, selectEvidence,
   type RetrievalConfig, type RetrievalRepository, type SemanticHit,
 } from './retriever.js'
 
@@ -30,6 +30,7 @@ export async function retrieveDisasterOverview(
   scope: { releaseId: string; disasterId: string },
   semantic: SemanticHit[],
   config: RetrievalConfig,
+  signal: AbortSignal,
 ) {
   const lists = await Promise.all(TOPIC_QUERIES.map(async (question) => {
     const lexical = await repository.lexicalSearch({ ...scope, question, limit: config.candidatesPerModality })
@@ -44,5 +45,10 @@ export async function retrieveDisasterOverview(
   const ranked = Array.from({ length: Math.max(...lists.map((list) => list.length)) }, (_, index) =>
     lists.flatMap((list) => list.slice(index, index + 1)),
   ).flat()
-  return selectEvidence(ranked, config, true)
+  const selected = selectEvidence(ranked, config, true)
+  if (selected.length > 0) return selected
+
+  signal.throwIfAborted()
+  const passages = await repository.overviewPassages({ ...scope, limit: config.candidatesPerModality })
+  return selectEvidence(passages.filter((chunk) => isEligibleChunk(chunk, scope)), config, true)
 }
