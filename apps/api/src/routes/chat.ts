@@ -3,6 +3,7 @@ import { CHAT_PATH, chatRequestSchema } from '@reliefcheck/contracts'
 import { sendError } from '../http/errors.js'
 import { answerQuestion, type AnswerDeps } from '../services/generation/answerQuestion.js'
 import { containsUrl } from '../services/generation/redact.js'
+import { annotate, stageObserver } from '../services/observability/requestTelemetry.js'
 
 /** POST /api/v1/chat — US03 grounded factual answers. `deps` is null until retrieval is wired. */
 export function chatRouter(deps: AnswerDeps | null): Router {
@@ -22,6 +23,7 @@ export function chatRouter(deps: AnswerDeps | null): Router {
       sendError(response, 422, 'MODE_UNAVAILABLE', 'Only general questions are supported in chat right now.', false)
       return
     }
+    annotate(response, { disasterId: input.data.disasterId, mode: input.data.mode ?? 'factual' })
     if (containsUrl(input.data.question)) {
       sendError(response, 422, 'APPEAL_REVIEW_REQUIRED',
         'Questions about a specific link are checked on the Check an Appeal page.', false)
@@ -35,8 +37,12 @@ export function chatRouter(deps: AnswerDeps | null): Router {
     const controller = new AbortController()
     response.on('close', () => { if (!response.writableFinished) controller.abort() })
     try {
-      const outcome = await answerQuestion(deps, input.data, controller.signal)
-      if (outcome.kind === 'answered') response.json(outcome.response)
+      const outcome = await answerQuestion(deps, input.data, controller.signal, stageObserver(response))
+      if (outcome.kind === 'answered') {
+        const { mode, status, retrievalMode, snapshot } = outcome.response
+        annotate(response, { mode, outcome: status, retrievalMode, releaseId: snapshot.releaseId, epoch: snapshot.epoch })
+        response.json(outcome.response)
+      }
       else if (outcome.kind === 'corpus_unavailable') {
         sendError(response, 503, 'CORPUS_UNAVAILABLE', 'No reviewed knowledge base is published.', false)
       } else {

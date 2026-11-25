@@ -12,6 +12,7 @@ import { buildFactualPrompt, type PromptEvidence } from './promptBuilder.js'
 import { validateGeneratedAnswer } from './outputValidator.js'
 import { ProviderError, type AnswerGenerator, type QueryEmbedder } from './provider.js'
 import { redactPersonalData } from './redact.js'
+import { timeStage, type StageObserver } from '../observability/requestTelemetry.js'
 
 export type AnswerDeps = {
   retrieval: RetrievalRepository
@@ -67,13 +68,15 @@ export async function answerQuestion(
   deps: AnswerDeps,
   request: ChatRequest,
   parentSignal: AbortSignal = new AbortController().signal,
+  /** US10: optional per-stage latency observer. Receives durations only, never request content. */
+  observe?: StageObserver,
 ): Promise<AnswerOutcome> {
   const config = deps.config ?? RETRIEVAL_CONFIG
   const deadlines = deps.deadlines ?? DEFAULT_DEADLINES
   const signal = stageSignal(parentSignal, deadlines.totalMs)
 
   signal.throwIfAborted()
-  const corpus = await waitForAbortable(deps.retrieval.activeCorpus(), signal)
+  const corpus = await timeStage(observe, 'snapshot', () => waitForAbortable(deps.retrieval.activeCorpus(), signal))
   signal.throwIfAborted()
   if (!corpus) return { kind: 'corpus_unavailable' }
   const snapshot: Snapshot = { ...corpus.snapshot, asOf: (deps.now?.() ?? new Date()).toISOString() }
@@ -92,14 +95,16 @@ export async function answerQuestion(
     corpus.embeddingProfile.model === deps.embedder.model &&
     corpus.embeddingProfile.dimensions === deps.embedder.dimensions
   if (deps.embedder && profileMatches) {
+    const embedder = deps.embedder
     const embeddingSignal = stageSignal(signal, deadlines.embedMs)
     try {
       const embeddingQuery = overview ? OVERVIEW_EMBEDDING_QUERY : providerQuestion
-      const vector = await waitForAbortable(deps.embedder.embedQuery(embeddingQuery, embeddingSignal), embeddingSignal)
+      const vector = await timeStage(observe, 'embed', () =>
+        waitForAbortable(embedder.embedQuery(embeddingQuery, embeddingSignal), embeddingSignal))
       signal.throwIfAborted()
-      semantic = await waitForAbortable(deps.retrieval.semanticSearch({
+      semantic = await timeStage(observe, 'retrieve', () => waitForAbortable(deps.retrieval.semanticSearch({
         releaseId, disasterId, profileId: corpus.embeddingProfile.id, vector, limit: config.candidatesPerModality,
-      }), signal)
+      }), signal))
       hybrid = true
     } catch (error) {
       signal.throwIfAborted()
@@ -110,14 +115,14 @@ export async function answerQuestion(
 
   signal.throwIfAborted()
   const scope = { releaseId, disasterId }
-  const selected = overview
+  const selected = await timeStage(observe, 'retrieve', async () => overview
     ? await waitForAbortable(retrieveDisasterOverview(deps.retrieval, scope, semantic, config, signal), signal)
     : fuseAndSelect({
       ...scope, semantic, question,
       lexical: await waitForAbortable(deps.retrieval.lexicalSearch({
         ...scope, question, limit: config.candidatesPerModality,
       }), signal),
-    }, config)
+    }, config))
   signal.throwIfAborted()
   const retrievalMode = hybrid ? 'hybrid' : 'lexical_only'
   const baseLimitations: string[] = hybrid ? [] : [
@@ -126,7 +131,7 @@ export async function answerQuestion(
 
   const finish = async (response: Omit<ChatResponse, 'requestId' | 'snapshot' | 'mode' | 'retrievalMode'>): Promise<AnswerOutcome> => {
     signal.throwIfAborted()
-    const current = await waitForAbortable(deps.retrieval.currentSnapshot(), signal)
+    const current = await timeStage(observe, 'recheck', () => waitForAbortable(deps.retrieval.currentSnapshot(), signal))
     signal.throwIfAborted()
     if (!current || current.releaseId !== releaseId || current.epoch !== corpus.snapshot.epoch) {
       return { kind: 'changed' }
@@ -165,9 +170,11 @@ export async function answerQuestion(
 
   let candidate: unknown
   signal.throwIfAborted()
+  const generator = deps.generator
   const generationSignal = stageSignal(signal, deadlines.generateMs)
   try {
-    candidate = await waitForAbortable(deps.generator.generate(prompt, generationSignal), generationSignal)
+    candidate = await timeStage(observe, 'generate', () =>
+      waitForAbortable(generator.generate(prompt, generationSignal), generationSignal))
   } catch (error) {
     signal.throwIfAborted()
     if (!(error instanceof ProviderError) && !generationSignal.aborted) throw error
