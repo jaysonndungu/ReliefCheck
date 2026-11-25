@@ -22,6 +22,8 @@ export function sendError(
     error: { code, message, retryable, ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds }) },
     requestId: (response.locals.requestId as string | undefined) ?? randomUUID(),
   }
+  // US10: the stable error code (never the message) is recorded in request telemetry.
+  response.locals.errorCode = code
   if (retryAfterSeconds !== undefined) response.setHeader('Retry-After', String(retryAfterSeconds))
   response.status(status).json(body)
 }

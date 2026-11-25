@@ -10,6 +10,7 @@
         { "source": "/appeal", "destination": "/index.html" },
         { "source": "/compare", "destination": "/index.html" },
         { "source": "/about", "destination": "/index.html" },
+        { "source": "/admin/performance", "destination": "/index.html" },
         { "source": "/sources/:id", "destination": "/index.html" }
       ]
     },

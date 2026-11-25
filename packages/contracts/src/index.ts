@@ -190,3 +190,76 @@ export const appealReviewResponseSchema = z.object({
   citations: z.array(citationSchema).max(20),
 })
 export type AppealReviewResponse = z.infer<typeof appealReviewResponseSchema>
+
+/**
+ * US10 monitoring: GET /admin/metrics (admin only). Aggregates of relief.request_events metadata.
+ * Every count is scoped to `window`; percentiles always travel with their sample count because a
+ * p95 from a handful of requests is not meaningful (ai.md §12). There is no "accuracy" metric here:
+ * evaluation results are a separate US09 report.
+ */
+export const ADMIN_METRICS_PATH = '/admin/metrics'
+/** Matches the 14-day request-log retention (ai.md §10). */
+export const METRICS_MAX_WINDOW_HOURS = 14 * 24
+
+export const requestOutcomeSchema = z.enum([
+  'supported', 'partial', 'insufficient_evidence', 'extractive_fallback',
+  'documented_official_channel', 'published_warning_found',
+])
+export type RequestOutcome = z.infer<typeof requestOutcomeSchema>
+export const retrievalModeSchema = chatResponseSchema.shape.retrievalMode
+
+export const adminMetricsQuerySchema = z.object({
+  from: z.iso.datetime({ offset: true }).optional(),
+  to: z.iso.datetime({ offset: true }).optional(),
+}).refine((query) => !query.from || !query.to || Date.parse(query.from) < Date.parse(query.to), {
+  path: ['from'], message: '`from` must be earlier than `to`',
+}).refine((query) => !query.from || !query.to ||
+  Date.parse(query.to) - Date.parse(query.from) <= METRICS_MAX_WINDOW_HOURS * 3_600_000, {
+  path: ['from'], message: `The window can be at most ${METRICS_MAX_WINDOW_HOURS} hours`,
+})
+export type AdminMetricsQuery = z.infer<typeof adminMetricsQuerySchema>
+
+const countSchema = z.number().int().nonnegative()
+const latencySummarySchema = z.object({
+  sampleCount: countSchema,
+  /** null when sampleCount is 0. */
+  p50Ms: z.number().nonnegative().nullable(),
+  p95Ms: z.number().nonnegative().nullable(),
+})
+export type LatencySummary = z.infer<typeof latencySummarySchema>
+
+export const adminMetricsResponseSchema = z.object({
+  window: z.object({ from: z.iso.datetime({ offset: true }), to: z.iso.datetime({ offset: true }) }),
+  generatedAt: z.iso.datetime({ offset: true }),
+  totals: z.object({
+    requests: countSchema,
+    /** 2xx responses. */
+    succeeded: countSchema,
+    /** 4xx excluding 429: validation, auth and not-found responses. */
+    clientErrors: countSchema,
+    /** 429 admission or provider quota limits. */
+    quotaBlocked: countSchema,
+    /** 5xx: a required dependency or the server failed. */
+    infrastructureFailures: countSchema,
+    /** 200 responses served in a degraded state: extractive fallback or lexical-only retrieval. */
+    degraded: countSchema,
+  }),
+  outcomes: z.array(z.object({ outcome: requestOutcomeSchema, count: countSchema })).max(20),
+  latency: latencySummarySchema,
+  endpoints: z.array(latencySummarySchema.extend({
+    endpoint: z.string().min(1).max(100),
+    method: z.string().min(1).max(10),
+    requests: countSchema,
+    failures: countSchema,
+  })).max(100),
+  stages: z.array(latencySummarySchema.extend({ stage: z.string().min(1).max(32) })).max(20),
+  byMode: z.array(z.object({ mode: chatModeSchema, count: countSchema })).max(10),
+  byRetrievalMode: z.array(z.object({ retrievalMode: retrievalModeSchema, count: countSchema })).max(10),
+  byDisaster: z.array(z.object({ disasterId: z.uuid(), count: countSchema })).max(100),
+  /** Telemetry writes that failed or were dropped in this server process (ai.md §10 telemetry gaps). */
+  telemetry: z.object({
+    processStartedAt: z.iso.datetime({ offset: true }),
+    droppedEvents: countSchema,
+  }),
+})
+export type AdminMetricsResponse = z.infer<typeof adminMetricsResponseSchema>

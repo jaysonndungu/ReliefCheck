@@ -6,6 +6,7 @@ import { PlaceholderPage } from './pages/PlaceholderPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ChatPage } from './pages/ChatPage'
 import { SourcePage } from './pages/SourcePage'
+import { AdminPerformancePage } from './pages/AdminPerformancePage'
 import './styles.css'
 
 function App() {
@@ -45,6 +46,7 @@ function App() {
               />
             }
           />
+          <Route path="admin/performance" element={<AdminPerformancePage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
