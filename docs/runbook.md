@@ -27,6 +27,8 @@ CREATE POLICY staff_roles_app_read ON relief.staff_roles FOR SELECT TO reliefche
 
 Apply `db/migrations/0001_staff_roles.sql` first. Jayson coordinates migration numbers, so confirm the number before applying it to a shared project. Later stories grant `reliefcheck_app` the specific table operations they need.
 
+For US10/US12, apply migrations `0003_request_events.sql` and `0004_usage_log_retention.sql` in order. The latter grants only the bounded retention delete used by the API; usage-log reads remain admin-gated in application code. Run the retention operation repeatedly with a modest batch size until it reports zero deleted rows.
+
 `DATABASE_URL` for Render is the **session pooler** connection string (Supabase → Connect), using `reliefcheck_app` as the user. It looks like `postgresql://reliefcheck_app.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`. The API verifies TLS. If verification fails, download the Supabase CA certificate (Database settings → SSL) and paste the PEM into `DATABASE_CA_CERT`. Don't turn off verification.
 
 ## 3. Render web service

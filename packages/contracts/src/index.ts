@@ -263,3 +263,56 @@ export const adminMetricsResponseSchema = z.object({
   }),
 })
 export type AdminMetricsResponse = z.infer<typeof adminMetricsResponseSchema>
+
+/** US12 usage logs: safe request metadata only; never raw user input or credentials. */
+export const ADMIN_LOGS_PATH = '/admin/logs'
+export const LOGS_MAX_PAGE_SIZE = 100
+
+const logFilterEnum = z.string().trim().min(1).max(100)
+export const adminLogsQuerySchema = z.object({
+  from: z.iso.datetime({ offset: true }).optional(),
+  to: z.iso.datetime({ offset: true }).optional(),
+  endpoint: logFilterEnum.optional(),
+  method: z.enum(['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'HEAD', 'OPTIONS']).optional(),
+  statusCode: z.coerce.number().int().min(100).max(599).optional(),
+  mode: chatModeSchema.optional(),
+  outcome: requestOutcomeSchema.optional(),
+  retrievalMode: retrievalModeSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(LOGS_MAX_PAGE_SIZE).default(50),
+  cursor: z.string().trim().min(1).max(512).optional(),
+}).refine((query) => !query.from || !query.to || Date.parse(query.from) < Date.parse(query.to), {
+  path: ['from'], message: '`from` must be earlier than `to`',
+}).refine((query) => !query.from || !query.to ||
+  Date.parse(query.to) - Date.parse(query.from) <= METRICS_MAX_WINDOW_HOURS * 3_600_000, {
+  path: ['from'], message: `The window can be at most ${METRICS_MAX_WINDOW_HOURS} hours`,
+})
+export type AdminLogsQuery = z.infer<typeof adminLogsQuerySchema>
+
+const safeMetadataRecordSchema = z.record(z.string().max(32), z.number().finite().nonnegative().max(600_000))
+export const adminLogEntrySchema = z.object({
+  requestId: z.uuid(),
+  occurredAt: z.iso.datetime({ offset: true }),
+  endpoint: z.string().min(1).max(100),
+  method: z.string().min(1).max(10),
+  statusCode: z.number().int().min(100).max(599),
+  errorCode: z.string().regex(/^[A-Z0-9_]+$/u).max(64).nullable(),
+  latencyMs: z.number().int().nonnegative().max(600_000),
+  stageTimings: safeMetadataRecordSchema.nullable(),
+  mode: chatModeSchema.nullable(),
+  outcome: requestOutcomeSchema.nullable(),
+  retrievalMode: retrievalModeSchema.nullable(),
+  disasterId: z.uuid().nullable(),
+  releaseId: z.uuid().nullable(),
+  epoch: z.number().int().nonnegative().nullable(),
+  providerUsage: z.record(z.string().max(32), z.number().finite().nonnegative().max(10_000_000)).nullable(),
+})
+export type AdminLogEntry = z.infer<typeof adminLogEntrySchema>
+
+export const adminLogsResponseSchema = z.object({
+  entries: z.array(adminLogEntrySchema).max(LOGS_MAX_PAGE_SIZE),
+  nextCursor: z.string().min(1).max(512).nullable(),
+  window: z.object({ from: z.iso.datetime({ offset: true }), to: z.iso.datetime({ offset: true }) }),
+  generatedAt: z.iso.datetime({ offset: true }),
+  retentionDays: z.literal(14),
+})
+export type AdminLogsResponse = z.infer<typeof adminLogsResponseSchema>

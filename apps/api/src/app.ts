@@ -14,6 +14,7 @@ import type { StaffAuthDeps } from './middleware/staffAuth.js'
 import type { AnswerDeps } from './services/generation/answerQuestion.js'
 import type { RequestTelemetry } from './services/observability/requestTelemetry.js'
 import type { RequestMetricsRepository } from './services/observability/requestMetrics.js'
+import type { RequestLogsRepository } from './services/observability/requestLogs.js'
 
 export type AppDeps = {
   listDisasters?: (() => Promise<DisastersResponse>) | null
@@ -31,6 +32,8 @@ export type AppDeps = {
   telemetry?: RequestTelemetry | null
   /** US10: null when no database is configured; /admin/metrics then returns 503. */
   requestMetrics?: RequestMetricsRepository | null
+  /** US12: safe request metadata repository for the admin usage-log screen. */
+  requestLogs?: RequestLogsRepository | null
   /** Built web assets directory; the UI is served only when it contains index.html. */
   webDist: string | null
 }
@@ -87,7 +90,7 @@ export function createApp(deps: AppDeps): Express {
       processStartedAt: deps.telemetry?.processStartedAt ?? processStartedAt,
       droppedEvents: deps.telemetry?.droppedEvents() ?? 0,
     }),
-  }))
+  }, { repository: deps.requestLogs ?? null }))
   api.use(sourcesRouter(deps.sourceEvidence ?? null))
   api.use(appealsRouter(deps.appealRegistry ?? null))
   api.use(chatRouter(deps.chat ?? null))
