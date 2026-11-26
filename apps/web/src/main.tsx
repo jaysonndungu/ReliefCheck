@@ -7,6 +7,7 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { ChatPage } from './pages/ChatPage'
 import { SourcePage } from './pages/SourcePage'
 import { AdminPerformancePage } from './pages/AdminPerformancePage'
+import { AdminLogsPage } from './pages/AdminLogsPage'
 import './styles.css'
 
 function App() {
@@ -47,6 +48,7 @@ function App() {
             }
           />
           <Route path="admin/performance" element={<AdminPerformancePage />} />
+          <Route path="admin/logs" element={<AdminLogsPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

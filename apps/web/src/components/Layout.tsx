@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: '/appeal', label: 'Check an Appeal', end: false },
   { to: '/compare', label: 'Compare Channels', end: false },
   { to: '/about', label: 'About the Evidence', end: false },
+  { to: '/admin/logs', label: 'Admin', end: false },
 ] as const
 
 export function Layout() {
