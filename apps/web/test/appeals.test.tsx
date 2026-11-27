@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
 import { appealReviewResponseSchema } from '@reliefcheck/contracts'
+import { App } from '../src/App'
 import { AppealPage } from '../src/pages/AppealPage'
 import { AppealResultView } from '../src/features/appeals/AppealResultView'
 
@@ -10,6 +12,7 @@ const DISASTER_B = '22222222-2222-4222-8222-222222222222'
 const RELEASE = '33333333-3333-4333-8333-333333333333'
 const RECORD = '44444444-4444-4444-8444-444444444444'
 const SOURCE = '55555555-5555-4555-8555-555555555555'
+const WARNING = '66666666-6666-4666-8666-666666666666'
 const disasters = { disasters: [
   { id: DISASTER_A, slug: 'valencia-dana', name: 'Valencia DANA floods' },
   { id: DISASTER_B, slug: 'hurricane-melissa', name: 'Hurricane Melissa' },
@@ -28,7 +31,8 @@ function review(requestId: string, status: 'documented_official_channel' | 'publ
     title: status === 'published_warning_found' ? 'Synthetic warning' : 'Synthetic campaign',
     organizationName: status === 'published_warning_found' ? null : 'Synthetic Organization',
     scope: 'host', officialChannelUrl: status === 'published_warning_found' ? null : 'https://official.test/donate',
-    publicationDate: null, reviewedAt: '2026-11-08T16:00:00Z', historical: false, retracted: false,
+    publicationDate: status === 'published_warning_found' ? '2025-10-31' : null,
+    reviewedAt: '2026-11-08T16:00:00Z', historical: false, retracted: false,
     citationIds: ['c1'],
   }
   const result = { status, reasonCodes, targetHost: 'official.test', scope: isUnknown ? null : 'host',
@@ -38,7 +42,8 @@ function review(requestId: string, status: 'documented_official_channel' | 'publ
     requestId, snapshot: { releaseId: RELEASE, epoch: 2, asOf: '2026-11-08T17:00:00Z' }, result,
     targets: [{ targetHost: 'official.test', result, matches: isUnknown ? [] : [match] }],
     citations: isUnknown ? [] : [{ id: 'c1', sourceVersionId: SOURCE, title: 'Synthetic source', sourceUrl: null,
-      publicationDate: null, reviewedAt: '2026-11-08T15:00:00Z', locator: 'Page 2', excerpt: '<script>source text</script>' }],
+      publicationDate: status === 'published_warning_found' ? '2025-11-01' : null,
+      reviewedAt: '2026-11-08T15:00:00Z', locator: 'Page 2', excerpt: '<script>source text</script>' }],
   }
 }
 
@@ -47,14 +52,18 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 describe('US13 appeal flow', () => {
   it('keeps conflicting records visible without endorsing a channel destination', () => {
     const response = review(RELEASE)
+    const target = response.targets[0]!
+    const warning = review(RELEASE, 'published_warning_found').targets[0]!.matches[0]!
+    target.matches.push({ ...warning, recordVersionId: WARNING })
     response.result.status = 'insufficient_evidence'
     response.result.reasonCodes = ['CONFLICTING_RECORDS']
+    response.result.matchedRecordIds.push(WARNING)
     response.result.conflict = true
-    response.targets[0]!.result = response.result
     render(<AppealResultView review={appealReviewResponseSchema.parse(response)} />)
     expect(screen.getByText('Insufficient evidence')).toBeTruthy()
     expect(screen.getByText(/records conflict/i)).toBeTruthy()
     expect(screen.getByText('Synthetic Organization')).toBeTruthy()
+    expect(screen.getByText('Synthetic warning')).toBeTruthy()
     expect(screen.queryByRole('link', { name: 'Open reviewed channel destination' })).toBeNull()
   })
 
@@ -67,16 +76,34 @@ describe('US13 appeal flow', () => {
     expect(screen.queryByRole('textbox', { name: 'Donation URL or appeal text' })).toBeNull()
   })
 
-  it('shows a documented channel with distinct dates, source link and no safety claim', async () => {
-    const fetchMock = vi.fn((_url: string, options?: RequestInit) => {
+  it('opens the appeal form from primary navigation', async () => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => Promise.resolve(
+      json(url === '/api/v1/health/live' ? { status: 'ok' } : disasters),
+    )))
+    render(<MemoryRouter initialEntries={['/about']}><App /></MemoryRouter>)
+
+    const user = userEvent.setup()
+    const link = screen.getByRole('link', { name: 'Check an Appeal' })
+    expect(link.getAttribute('href')).toBe('/appeal')
+    await user.click(link)
+
+    expect(screen.getByRole('heading', { name: 'Check an Appeal' })).toBeTruthy()
+    expect(await screen.findByRole('combobox', { name: 'Disaster' })).toBeTruthy()
+    expect(link.getAttribute('aria-current')).toBe('page')
+  })
+
+  it('loads /appeal directly and submits for a documented channel with citations and dates', async () => {
+    const fetchMock = vi.fn((url: string, options?: RequestInit) => {
+      if (url === '/api/v1/health/live') return Promise.resolve(json({ status: 'ok' }))
       if (!options?.method) return Promise.resolve(json(disasters))
       const request = JSON.parse(String(options.body))
       return Promise.resolve(json(review(request.requestId)))
     })
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
-    render(<AppealPage />)
+    render(<MemoryRouter initialEntries={['/appeal']}><App /></MemoryRouter>)
     await screen.findByRole('combobox', { name: 'Disaster' })
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Disaster' }), DISASTER_B)
     await user.type(screen.getByRole('textbox', { name: 'Donation URL or appeal text' }), 'https://official.test')
     await user.click(screen.getByRole('button', { name: 'Review appeal' }))
     const heading = await screen.findByRole('heading', { name: 'Evidence review' })
@@ -91,8 +118,15 @@ describe('US13 appeal flow', () => {
       .toBe(`/sources/${SOURCE}?releaseId=${RELEASE}&epoch=2`)
     expect(screen.getByText('<script>source text</script>')).toBeTruthy()
     expect(screen.queryByRole('link', { name: 'https://official.test' })).toBeNull()
-    const [, options] = fetchMock.mock.calls[1]!
-    expect(JSON.parse(String(options?.body)).disasterId).toBe(DISASTER_A)
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/appeals/review', expect.objectContaining({
+      method: 'POST',
+      body: expect.any(String),
+    }))
+    const submission = fetchMock.mock.calls.find(([url]) => url === '/api/v1/appeals/review')
+    expect(JSON.parse(String(submission?.[1]?.body))).toMatchObject({
+      disasterId: DISASTER_B,
+      input: 'https://official.test',
+    })
   })
 
   it('shows warning context and distinguishes insufficient evidence from a service failure', async () => {
@@ -111,6 +145,12 @@ describe('US13 appeal flow', () => {
     await user.click(screen.getByRole('button', { name: 'Review appeal' }))
     expect(await screen.findByText('Published warning found')).toBeTruthy()
     expect(screen.getByText(/does not establish a present-day fraud finding/i)).toBeTruthy()
+    const record = within(screen.getByRole('heading', { name: 'Synthetic warning' }).closest('article')!)
+    expect(record.getByText('2025-10-31').parentElement?.textContent).toBe('Published: 2025-10-31')
+    expect(record.getByText('2026-11-08 UTC').parentElement?.textContent).toBe('Reviewed: 2026-11-08 UTC')
+    const source = within(screen.getByRole('heading', { name: '[1] Synthetic source' }).closest('article')!)
+    expect(source.getByText('2025-11-01').parentElement?.textContent).toBe('Published: 2025-11-01')
+    expect(source.getByText('2026-11-08 UTC').parentElement?.textContent).toBe('Reviewed: 2026-11-08 UTC')
     status = 'insufficient_evidence'
     await user.clear(field)
     await user.type(field, 'unknown.test')
