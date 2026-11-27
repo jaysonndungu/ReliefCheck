@@ -161,7 +161,8 @@ describe('US13 API boundary', () => {
     } finally { await server.close() }
   })
 
-  it('returns a reviewed result and invalidates a changed release', async () => {
+  it('returns a reviewed result and invalidates a changed release', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: new Date(snapshot.asOf) })
     const server = await startServer({ appealRegistry: repository([campaign()]) })
     try {
       const response = await fetch(`${server.url}/api/v1/appeals/review`, { method: 'POST',
